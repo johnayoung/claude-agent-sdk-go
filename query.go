@@ -129,6 +129,7 @@ func buildQueryArgs(prompt string, o *Options) []string {
 	args := []string{
 		"--print", prompt,
 		"--output-format", "stream-json",
+		"--input-format", "stream-json",
 		"--verbose",
 	}
 	if o.Model != "" {
@@ -146,6 +147,9 @@ func buildQueryArgs(prompt string, o *Options) []string {
 	if o.MaxBudgetUSD > 0 {
 		args = append(args, "--max-budget-usd", fmt.Sprintf("%.2f", o.MaxBudgetUSD))
 	}
+	if o.TaskBudget != nil && o.TaskBudget.Total > 0 {
+		args = append(args, "--task-budget", strconv.Itoa(o.TaskBudget.Total))
+	}
 	if o.Effort != "" {
 		args = append(args, "--effort", o.Effort)
 	}
@@ -159,23 +163,36 @@ func buildQueryArgs(prompt string, o *Options) []string {
 			args = append(args, "--thinking", "adaptive")
 		}
 	}
+	if o.MaxThinkingTokens > 0 {
+		args = append(args, "--max-thinking-tokens", strconv.Itoa(o.MaxThinkingTokens))
+	}
 	if o.SessionID != "" {
-		args = append(args, "--resume", o.SessionID)
+		if o.ContinueConversation || o.ForkSession {
+			args = append(args, "--resume", o.SessionID)
+		} else {
+			args = append(args, "--session-id", o.SessionID)
+		}
 	}
 	if o.ContinueConversation {
 		args = append(args, "--continue")
 	}
+	if o.ForkSession {
+		args = append(args, "--fork-session")
+	}
 	if o.PermissionMode != "" && o.PermissionMode != PermissionModeDefault {
 		args = append(args, "--permission-mode", string(o.PermissionMode))
+	}
+	if o.PermissionPromptTool != "" {
+		args = append(args, "--permission-prompt-tool", o.PermissionPromptTool)
 	}
 	if len(o.Tools) > 0 {
 		args = append(args, "--tools", strings.Join(o.Tools, ","))
 	}
 	if len(o.AllowedTools) > 0 {
-		args = append(args, "--allowed-tools", strings.Join(o.AllowedTools, ","))
+		args = append(args, "--allowedTools", strings.Join(o.AllowedTools, ","))
 	}
 	if len(o.DisallowedTools) > 0 {
-		args = append(args, "--disallowed-tools", strings.Join(o.DisallowedTools, ","))
+		args = append(args, "--disallowedTools", strings.Join(o.DisallowedTools, ","))
 	}
 	if len(o.MCPServers) > 0 {
 		mcpCfg := buildMCPConfig(o.MCPServers)
@@ -186,14 +203,43 @@ func buildQueryArgs(prompt string, o *Options) []string {
 	if o.FileCheckpointing {
 		args = append(args, "--enable-file-checkpointing")
 	}
-	for _, beta := range o.Betas {
-		args = append(args, "--beta", beta)
+	if len(o.Betas) > 0 {
+		args = append(args, "--betas", strings.Join(o.Betas, ","))
 	}
 	if len(o.Skills) > 0 {
 		args = append(args, "--skills", strings.Join(o.Skills, ","))
 	}
 	if len(o.SettingSources) > 0 {
 		args = append(args, "--setting-sources", strings.Join(o.SettingSources, ","))
+	}
+	for _, dir := range o.AddDirs {
+		args = append(args, "--add-dir", dir)
+	}
+	if o.IncludePartialMsgs {
+		args = append(args, "--include-partial-messages")
+	}
+	if o.SessionStore != nil {
+		args = append(args, "--session-mirror")
+	}
+	for _, plugin := range o.Plugins {
+		if plugin.Path != "" {
+			args = append(args, "--plugin-dir", plugin.Path)
+		}
+	}
+	if o.OutputFormat != nil {
+		if data, err := json.Marshal(o.OutputFormat); err == nil {
+			args = append(args, "--json-schema", string(data))
+		}
+	}
+	if o.Settings != "" {
+		args = append(args, "--settings", o.Settings)
+	}
+	for flag, val := range o.ExtraArgs {
+		if val == nil {
+			args = append(args, flag)
+		} else {
+			args = append(args, flag, *val)
+		}
 	}
 	return args
 }
