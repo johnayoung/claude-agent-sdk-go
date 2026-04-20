@@ -31,10 +31,18 @@ func WithWorkingDir(dir string) Option {
 	}
 }
 
+// WithEnv sets additional environment variables for the subprocess.
+func WithEnv(env map[string]string) Option {
+	return func(t *SubprocessTransport) {
+		t.env = env
+	}
+}
+
 // SubprocessTransport manages a Claude CLI subprocess via stdin/stdout JSON lines.
 type SubprocessTransport struct {
 	cliPath    string
 	workingDir string
+	env        map[string]string
 	args       []string
 
 	cmd    *exec.Cmd
@@ -67,6 +75,12 @@ func (t *SubprocessTransport) Start(ctx context.Context) error {
 	t.cmd = exec.CommandContext(ctx, cliPath, t.args...)
 	if t.workingDir != "" {
 		t.cmd.Dir = t.workingDir
+	}
+	if len(t.env) > 0 {
+		t.cmd.Env = os.Environ()
+		for k, v := range t.env {
+			t.cmd.Env = append(t.cmd.Env, k+"="+v)
+		}
 	}
 
 	stdin, err := t.cmd.StdinPipe()

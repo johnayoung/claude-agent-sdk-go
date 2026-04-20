@@ -72,20 +72,44 @@ Second pass additions:
 
 ---
 
-## Phase 2: CLI Argument Parity
+## Phase 2: CLI Argument Parity [DONE]
 
 **Goal:** Every CLI flag the Python SDK can pass, we can pass too.
 
-**Steps:**
-1. Fetch `src/claude_agent_sdk/_internal/transport/subprocess_cli.py`
-2. Find where CLI args are constructed (look for `--print`, `--output-format`, etc.)
-3. Also check `src/claude_agent_sdk/_internal/query.py` for query-specific args
-4. Compare against our `buildQueryArgs()` in `query.go`
-5. Flag missing or incorrectly-named flags
+**Changes made:**
+
+CLI argument fixes (`query.go`):
+- `--system-prompt` now always sent (empty string when unset, matching Python's explicit None behavior)
+- `--system-prompt-file` support via `SystemPromptSource{Type: "file"}`
+- `--append-system-prompt` support via `SystemPromptSource{Type: "preset"}`
+- `--tools` supports presets (e.g. "default") via `ToolsPreset` field
+- `--tools ""` sent when `Tools` is explicitly `[]string{}` (empty slice vs nil)
+- `--thinking enabled:N` replaced with `--max-thinking-tokens N` only (matching Python)
+- `--setting-sources=X` now uses `=` form (matching Python)
+- Removed `--enable-file-checkpointing` CLI flag (handled via env var)
+
+Environment variables (`buildEnv` in `query.go`):
+- `CLAUDE_CODE_ENTRYPOINT=sdk-go` — identifies SDK invocation
+- `CLAUDE_AGENT_SDK_VERSION` — reports SDK version
+- `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` — when enabled
+- User `Env` map merged in
+
+Initialize request protocol (`sendInitializeRequest` in `query.go`):
+- Sends `{"type": "initialize", ...}` via stdin after process starts
+- Fields: `agents`, `excludeDynamicSections`, `skills`
+
+Transport env support (`internal/transport/subprocess.go`):
+- Added `WithEnv` option to set subprocess environment variables
+
+New options (`options.go`):
+- `SystemPromptSource` — file/preset system prompt variants
+- `ToolsPreset` — named tool presets
+- `ExcludeDynamicSections` — control dynamic section inclusion
+- `WithSystemPromptFile()`, `WithAppendSystemPrompt()`, `WithToolsPreset()`, `WithExcludeDynamicSections()`
 
 **Key files to compare:**
 - Python: `transport/subprocess_cli.py`, `query.py`
-- Go: `query.go` (buildQueryArgs), `options.go`
+- Go: `query.go` (buildQueryArgs, buildEnv, sendInitializeRequest), `options.go`
 
 ---
 

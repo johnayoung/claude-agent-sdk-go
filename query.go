@@ -34,6 +34,9 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 			if o.WorkingDir != "" {
 				trOpts = append(trOpts, transport.WithWorkingDir(o.WorkingDir))
 			}
+			if env := buildEnv(o); len(env) > 0 {
+				trOpts = append(trOpts, transport.WithEnv(env))
+			}
 			tr = transport.New(args, trOpts...)
 		}
 
@@ -42,6 +45,11 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 			return
 		}
 		defer tr.Close()
+
+		if err := sendInitializeRequest(tr, o); err != nil {
+			yield(nil, err)
+			return
+		}
 
 		for {
 			line, err := tr.Receive()
@@ -138,7 +146,16 @@ func buildQueryArgs(prompt string, o *Options) []string {
 	if o.FallbackModel != "" {
 		args = append(args, "--fallback-model", o.FallbackModel)
 	}
-	if o.SystemPrompt != "" {
+	if o.SystemPromptSource != nil {
+		switch o.SystemPromptSource.Type {
+		case "file":
+			args = append(args, "--system-prompt-file", o.SystemPromptSource.Path)
+		case "preset":
+			if o.SystemPromptSource.Append != "" {
+				args = append(args, "--append-system-prompt", o.SystemPromptSource.Append)
+			}
+		}
+	} else {
 		args = append(args, "--system-prompt", o.SystemPrompt)
 	}
 	if o.MaxTurns > 0 {
@@ -156,14 +173,13 @@ func buildQueryArgs(prompt string, o *Options) []string {
 	if o.Thinking != nil {
 		switch o.Thinking.Type {
 		case "enabled":
-			args = append(args, "--thinking", fmt.Sprintf("enabled:%d", o.Thinking.BudgetTokens))
+			args = append(args, "--max-thinking-tokens", strconv.Itoa(o.Thinking.BudgetTokens))
 		case "disabled":
 			args = append(args, "--thinking", "disabled")
 		case "adaptive":
 			args = append(args, "--thinking", "adaptive")
 		}
-	}
-	if o.MaxThinkingTokens > 0 {
+	} else if o.MaxThinkingTokens > 0 {
 		args = append(args, "--max-thinking-tokens", strconv.Itoa(o.MaxThinkingTokens))
 	}
 	if o.SessionID != "" {
@@ -185,7 +201,9 @@ func buildQueryArgs(prompt string, o *Options) []string {
 	if o.PermissionPromptTool != "" {
 		args = append(args, "--permission-prompt-tool", o.PermissionPromptTool)
 	}
-	if len(o.Tools) > 0 {
+	if o.ToolsPreset != "" {
+		args = append(args, "--tools", o.ToolsPreset)
+	} else if o.Tools != nil {
 		args = append(args, "--tools", strings.Join(o.Tools, ","))
 	}
 	if len(o.AllowedTools) > 0 {
@@ -200,9 +218,6 @@ func buildQueryArgs(prompt string, o *Options) []string {
 			args = append(args, "--mcp-config", string(data))
 		}
 	}
-	if o.FileCheckpointing {
-		args = append(args, "--enable-file-checkpointing")
-	}
 	if len(o.Betas) > 0 {
 		args = append(args, "--betas", strings.Join(o.Betas, ","))
 	}
@@ -210,7 +225,7 @@ func buildQueryArgs(prompt string, o *Options) []string {
 		args = append(args, "--skills", strings.Join(o.Skills, ","))
 	}
 	if len(o.SettingSources) > 0 {
-		args = append(args, "--setting-sources", strings.Join(o.SettingSources, ","))
+		args = append(args, "--setting-sources="+strings.Join(o.SettingSources, ","))
 	}
 	for _, dir := range o.AddDirs {
 		args = append(args, "--add-dir", dir)
@@ -265,4 +280,47 @@ func buildMCPConfig(servers []MCPServerConfig) map[string]mcpServerEntry {
 		cfg[s.Name] = entry
 	}
 	return cfg
+}
+
+const sdkVersion = "0.1.0"
+
+func buildEnv(o *Options) map[string]string {
+	env := make(map[string]string, len(o.Env)+3)
+	env["CLAUDE_CODE_ENTRYPOINT"] = "sdk-go"
+	env["CLAUDE_AGENT_SDK_VERSION"] = sdkVersion
+	if o.FileCheckpointing {
+		env["CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING"] = "true"
+	}
+	for k, v := range o.Env {
+		env[k] = v
+	}
+	return env
+}
+
+type initializeRequest struct {
+	Type                   string                     `json:"type"`
+	Hooks                  json.RawMessage            `json:"hooks,omitempty"`
+	Agents                 map[string]AgentDefinition `json:"agents,omitempty"`
+	ExcludeDynamicSections *bool                      `json:"excludeDynamicSections,omitempty"`
+	Skills                 []string                   `json:"skills,omitempty"`
+}
+
+func sendInitializeRequest(tr Transporter, o *Options) error {
+	req := initializeRequest{Type: "initialize"}
+
+	if o.Agents != nil {
+		req.Agents = o.Agents
+	}
+	if o.ExcludeDynamicSections != nil {
+		req.ExcludeDynamicSections = o.ExcludeDynamicSections
+	}
+	if len(o.Skills) > 0 && o.Skills[0] != "all" {
+		req.Skills = o.Skills
+	}
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	return tr.Send(data)
 }

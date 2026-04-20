@@ -85,12 +85,20 @@ type MCPServerConfig struct {
 	Env     map[string]string
 }
 
+// SystemPromptSource represents a system prompt from a file or preset.
+type SystemPromptSource struct {
+	Type   string // "file" or "preset"
+	Path   string // for type "file"
+	Append string // for type "preset"
+}
+
 // Options holds all configurable parameters for Query and Client.
 type Options struct {
 	// Core
 	Model                string
 	FallbackModel        string
 	SystemPrompt         string
+	SystemPromptSource   *SystemPromptSource
 	MaxTurns             int
 	MaxBudgetUSD         float64
 	Effort               string // "low", "medium", "high", "max"
@@ -102,6 +110,7 @@ type Options struct {
 
 	// Tools
 	Tools           []string
+	ToolsPreset     string // e.g. "default" — mutually exclusive with Tools
 	AllowedTools    []string
 	DisallowedTools []string
 
@@ -125,24 +134,25 @@ type Options struct {
 	SessionStore SessionStore
 
 	// Environment
-	CLIPath            string
-	Transport          Transporter
-	WorkingDir         string
-	AddDirs            []string
-	Settings           string
-	Env                map[string]string
-	ExtraArgs          map[string]*string
-	User               string
-	Sandbox            *SandboxConfig
-	FileCheckpointing  bool
-	Betas              []string
-	Skills             []string
-	SettingSources     []string
-	IncludePartialMsgs bool
-	MaxBufferSize      int
-	Stderr             func(string)
-	Plugins            []SdkPluginConfig
-	LoadTimeoutMS      int
+	CLIPath                  string
+	Transport                Transporter
+	WorkingDir               string
+	AddDirs                  []string
+	Settings                 string
+	Env                      map[string]string
+	ExtraArgs                map[string]*string
+	User                     string
+	Sandbox                  *SandboxConfig
+	FileCheckpointing        bool
+	Betas                    []string
+	Skills                   []string
+	SettingSources           []string
+	IncludePartialMsgs       bool
+	MaxBufferSize            int
+	Stderr                   func(string)
+	Plugins                  []SdkPluginConfig
+	LoadTimeoutMS            int
+	ExcludeDynamicSections   *bool
 }
 
 // Option is a functional option that configures Options.
@@ -161,6 +171,20 @@ func WithFallbackModel(model string) Option {
 // WithSystemPrompt sets the system prompt prepended to every conversation.
 func WithSystemPrompt(prompt string) Option {
 	return func(o *Options) { o.SystemPrompt = prompt }
+}
+
+// WithSystemPromptFile sets the system prompt from a file path.
+func WithSystemPromptFile(path string) Option {
+	return func(o *Options) {
+		o.SystemPromptSource = &SystemPromptSource{Type: "file", Path: path}
+	}
+}
+
+// WithAppendSystemPrompt appends text to the default system prompt (preset mode).
+func WithAppendSystemPrompt(text string) Option {
+	return func(o *Options) {
+		o.SystemPromptSource = &SystemPromptSource{Type: "preset", Append: text}
+	}
 }
 
 // WithMaxTurns limits the number of agentic turns (0 = unlimited).
@@ -196,6 +220,11 @@ func WithContinueConversation() Option {
 // WithTools sets the list of tool names or presets (e.g. "claude_code").
 func WithTools(tools ...string) Option {
 	return func(o *Options) { o.Tools = tools }
+}
+
+// WithToolsPreset sets a named tools preset (e.g. "default").
+func WithToolsPreset(preset string) Option {
+	return func(o *Options) { o.ToolsPreset = preset }
 }
 
 // WithAllowedTools sets an allowlist of specific tool names.
@@ -352,6 +381,11 @@ func WithLoadTimeout(ms int) Option {
 // WithSessionStore sets a custom session persistence backend.
 func WithSessionStore(store SessionStore) Option {
 	return func(o *Options) { o.SessionStore = store }
+}
+
+// WithExcludeDynamicSections controls whether dynamic sections are excluded from the session.
+func WithExcludeDynamicSections(exclude bool) Option {
+	return func(o *Options) { o.ExcludeDynamicSections = &exclude }
 }
 
 // NewOptions builds an Options by applying the given options over defaults.

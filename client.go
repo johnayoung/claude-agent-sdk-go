@@ -78,6 +78,9 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 			if c.opts.WorkingDir != "" {
 				trOpts = append(trOpts, transport.WithWorkingDir(c.opts.WorkingDir))
 			}
+			if env := buildEnv(c.opts); len(env) > 0 {
+				trOpts = append(trOpts, transport.WithEnv(env))
+			}
 			tr = transport.New(args, trOpts...)
 		}
 
@@ -86,6 +89,11 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 			return
 		}
 		defer tr.Close()
+
+		if err := sendInitializeRequest(tr, c.opts); err != nil {
+			yield(nil, err)
+			return
+		}
 
 		for {
 			line, err := tr.Receive()
