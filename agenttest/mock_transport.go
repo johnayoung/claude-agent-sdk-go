@@ -76,6 +76,15 @@ func (m *MockTransport) Sent() [][]byte {
 	return result
 }
 
+// NewMockTransportFromLines creates a MockTransport that replays raw JSON lines.
+func NewMockTransportFromLines(lines ...[]byte) *MockTransport {
+	cp := make([][]byte, len(lines))
+	for i, l := range lines {
+		cp[i] = append([]byte(nil), l...)
+	}
+	return &MockTransport{lines: cp}
+}
+
 // ---- wire serialization -------------------------------------------------------
 
 type wireContentBlock struct {
@@ -112,7 +121,6 @@ type wireUser struct {
 	Message         wireInnerMessage `json:"message"`
 	ParentToolUseID string           `json:"parent_tool_use_id,omitempty"`
 	UUID            string           `json:"uuid,omitempty"`
-	SessionID       string           `json:"session_id,omitempty"`
 }
 
 type wireSystem struct {
@@ -170,7 +178,6 @@ func marshalMessage(msg claude.Message) ([]byte, error) {
 			Message:         wireInnerMessage{Content: blocksToWire(v.Content)},
 			ParentToolUseID: v.ParentToolUseID,
 			UUID:            v.UUID,
-			SessionID:       v.SessionID,
 		}
 		return json.Marshal(w)
 	case *claude.SystemMessage:

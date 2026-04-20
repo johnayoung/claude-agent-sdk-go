@@ -37,6 +37,8 @@ func parseLine(line []byte) (Message, error) {
 			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
+	case "control_request":
+		return parseControlRequest(line)
 	default:
 		// Forward compatibility: skip unknown types
 		return nil, nil
@@ -48,7 +50,6 @@ func parseUserMessage(data map[string]any) (Message, error) {
 
 	msg.UUID, _ = data["uuid"].(string)
 	msg.ParentToolUseID, _ = data["parent_tool_use_id"].(string)
-	msg.SessionID, _ = data["session_id"].(string)
 
 	if tur, ok := data["tool_use_result"].(map[string]any); ok {
 		msg.ToolUseResult = tur
@@ -61,6 +62,8 @@ func parseUserMessage(data map[string]any) (Message, error) {
 
 	content := messageData["content"]
 	switch c := content.(type) {
+	case string:
+		msg.Content = []ContentBlock{&TextBlock{Type: "text", Text: c}}
 	case []any:
 		blocks, err := parseContentBlocksFromSlice(c)
 		if err != nil {
@@ -250,6 +253,14 @@ func parseTaskUsage(m map[string]any) TaskUsage {
 		u.DurationMS = int64(v)
 	}
 	return u
+}
+
+func parseControlRequest(line []byte) (Message, error) {
+	var msg ControlRequestMessage
+	if err := json.Unmarshal(line, &msg); err != nil {
+		return nil, &MessageParseError{TypeField: "control_request", RawJSON: string(line), Err: err}
+	}
+	return &msg, nil
 }
 
 func parseContentBlocksFromSlice(raw []any) ([]ContentBlock, error) {

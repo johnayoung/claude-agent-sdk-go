@@ -116,6 +116,19 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 				continue
 			}
 
+			if msg == nil {
+				continue
+			}
+
+			if cr, ok := msg.(*ControlRequestMessage); ok {
+				if err := handleControlRequest(qCtx, tr, c.opts, cr, cancel); err != nil {
+					if !yield(nil, err) {
+						return
+					}
+				}
+				continue
+			}
+
 			dispatchHooks(qCtx, c.opts, msg)
 
 			if result, ok := msg.(*ResultMessage); ok {

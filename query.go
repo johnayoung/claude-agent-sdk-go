@@ -40,7 +40,10 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 			tr = transport.New(args, trOpts...)
 		}
 
-		if err := tr.Start(ctx); err != nil {
+		qCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		if err := tr.Start(qCtx); err != nil {
 			yield(nil, err)
 			return
 		}
@@ -55,8 +58,8 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 			line, err := tr.Receive()
 			if err != nil {
 				if err == io.EOF {
-					if ctx.Err() != nil {
-						yield(nil, ctx.Err())
+					if qCtx.Err() != nil {
+						yield(nil, qCtx.Err())
 					}
 					return
 				}
@@ -76,7 +79,16 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 				continue
 			}
 
-			dispatchHooks(ctx, o, msg)
+			if cr, ok := msg.(*ControlRequestMessage); ok {
+				if err := handleControlRequest(qCtx, tr, o, cr, cancel); err != nil {
+					if !yield(nil, err) {
+						return
+					}
+				}
+				continue
+			}
+
+			dispatchHooks(qCtx, o, msg)
 
 			if !yield(msg, nil) {
 				return

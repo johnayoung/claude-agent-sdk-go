@@ -358,3 +358,39 @@ func TestParseLine_EmptyType(t *testing.T) {
 		t.Fatalf("expected nil for empty type, got %T", msg)
 	}
 }
+
+func TestParseLine_ControlRequest(t *testing.T) {
+	line := []byte(`{"type":"control_request","request_id":"req-123","request":{"subtype":"can_use_tool","tool_name":"bash","input":{"command":"ls"},"permission_suggestions":null,"blocked_path":null,"tool_use_id":"toolu_01"}}`)
+	msg, err := parseLine(line)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cr, ok := msg.(*ControlRequestMessage)
+	if !ok {
+		t.Fatalf("expected *ControlRequestMessage, got %T", msg)
+	}
+	if cr.RequestID != "req-123" {
+		t.Errorf("unexpected request_id: %q", cr.RequestID)
+	}
+	if cr.MessageType() != "control_request" {
+		t.Errorf("unexpected MessageType: %q", cr.MessageType())
+	}
+	if cr.Request == nil {
+		t.Fatal("expected non-nil request payload")
+	}
+}
+
+func TestParseLine_ControlRequest_Interrupt(t *testing.T) {
+	line := []byte(`{"type":"control_request","request_id":"req-456","request":{"subtype":"interrupt"}}`)
+	msg, err := parseLine(line)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cr, ok := msg.(*ControlRequestMessage)
+	if !ok {
+		t.Fatalf("expected *ControlRequestMessage, got %T", msg)
+	}
+	if cr.RequestID != "req-456" {
+		t.Errorf("unexpected request_id: %q", cr.RequestID)
+	}
+}

@@ -8,11 +8,10 @@ type Message interface {
 }
 
 type UserMessage struct {
-	Content          []ContentBlock         `json:"content"`
-	UUID             string                 `json:"uuid,omitempty"`
-	ParentToolUseID  string                 `json:"parent_tool_use_id,omitempty"`
-	SessionID        string                 `json:"session_id,omitempty"`
-	ToolUseResult    map[string]any `json:"tool_use_result,omitempty"`
+	Content         []ContentBlock `json:"content"`
+	UUID            string         `json:"uuid,omitempty"`
+	ParentToolUseID string         `json:"parent_tool_use_id,omitempty"`
+	ToolUseResult   map[string]any `json:"tool_use_result,omitempty"`
 }
 
 func (m *UserMessage) MessageType() string { return "user" }
