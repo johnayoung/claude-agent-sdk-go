@@ -1,0 +1,173 @@
+{
+  "phase": {
+    "id": "core-api",
+    "name": "Core API",
+    "depends_on_phases": ["foundation"],
+    "exit_criteria": "Query(), Client, hooks, permissions, MCP tools, and session management are fully implemented and compile cleanly"
+  },
+  "tasks": [
+    {
+      "id": "CASG-0004",
+      "description": "Implement functional options pattern for configuring Query and Client: WithSystemPrompt, WithMaxTurns, WithCLIPath, WithTransport, WithPermissionMode, WithCanUseTool, WithHooks, WithMCPServers, WithWorkingDir, etc.",
+      "category": "feat",
+      "commit": "feat(agent): add functional options for configuration",
+      "steps": [
+        "Step 1: Define Options struct with all configurable fields",
+        "Step 2: Implement Option type as func(*Options) and create all With* constructor functions",
+        "Step 3: Implement defaults resolution (zero-value safe, PATH discovery, default permission mode)"
+      ],
+      "acceptance_criteria": [
+        "All With* functions compile and configure the Options struct correctly",
+        "Zero-value Options produces valid defaults",
+        "Options are composable: multiple options can be chained"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0001"],
+      "parallel_group": null,
+      "priority": 3
+    },
+    {
+      "id": "CASG-0005",
+      "description": "Implement one-shot Query() function that launches CLI, streams messages, and returns iter.Seq2[Message, error] for range-based consumption",
+      "category": "feat",
+      "commit": "feat(agent): add Query() one-shot streaming function",
+      "steps": [
+        "Step 1: Implement Query(ctx, prompt, ...Option) iter.Seq2[Message, error] signature",
+        "Step 2: Wire transport Start + internal parser to yield messages via push iterator",
+        "Step 3: Handle context cancellation mid-stream (stop transport, yield context.Canceled)",
+        "Step 4: Ensure transport cleanup on iterator exhaustion or early break"
+      ],
+      "acceptance_criteria": [
+        "for msg, err := range agent.Query(ctx, prompt) { } compiles and yields messages",
+        "Context cancellation stops streaming and propagates error",
+        "Transport is cleaned up whether iterator is fully consumed or broken early",
+        "All message types flow through correctly"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0002", "CASG-0003", "CASG-0004"],
+      "parallel_group": null,
+      "priority": 4
+    },
+    {
+      "id": "CASG-0006",
+      "description": "Implement bidirectional Client supporting multi-turn conversations: create, send queries, receive streaming responses, send follow-ups, interrupt, and close",
+      "category": "feat",
+      "commit": "feat(agent): add bidirectional Client for multi-turn conversations",
+      "steps": [
+        "Step 1: Define Client struct with persistent transport connection and session state",
+        "Step 2: Implement NewClient(ctx, ...Option) (*Client, error) with transport initialization",
+        "Step 3: Implement Client.Query(ctx, prompt) iter.Seq2[Message, error] for sending follow-ups",
+        "Step 4: Implement Client.Close() for graceful shutdown and concurrency guard (single-session enforcement)"
+      ],
+      "acceptance_criteria": [
+        "Client supports multiple sequential queries in one session",
+        "Concurrent Query calls on same Client return an error",
+        "Client.Close() terminates transport gracefully",
+        "Client works with custom Transport implementations"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0005"],
+      "parallel_group": null,
+      "priority": 5
+    },
+    {
+      "id": "CASG-0007",
+      "description": "Implement hooks system covering all 10 hook events with typed input/output structs and handler function signatures. Events: PreToolUse, PostToolUse, ModelResponse, NotificationArrived, Stop, SubagentStarted, SubagentStopped, SessionStarted, SessionStopped, Error",
+      "category": "feat",
+      "commit": "feat(hooks): add typed hook system for all 10 lifecycle events",
+      "steps": [
+        "Step 1: Create hooks/ package with HookEvent enum and typed Input/Output structs per event",
+        "Step 2: Define handler function types: func(ctx, *XxxInput) (*XxxOutput, error) for each event",
+        "Step 3: Implement Hooks registry struct that stores handlers and dispatches events",
+        "Step 4: Implement hook matchers (tool name patterns, glob matching) for PreToolUse/PostToolUse"
+      ],
+      "acceptance_criteria": [
+        "All 10 hook events have typed Input and Output structs",
+        "Handler signatures provide compile-time type safety",
+        "Hooks registry dispatches to correct handler based on event type",
+        "PreToolUse hook can modify tool input via output struct"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0001"],
+      "parallel_group": "extensions",
+      "priority": 4
+    },
+    {
+      "id": "CASG-0008",
+      "description": "Implement permission management: PermissionMode enum, CanUseTool callback type, permission decision types (Allow/Deny), and permission update propagation",
+      "category": "feat",
+      "commit": "feat(permission): add permission management types and callbacks",
+      "steps": [
+        "Step 1: Create permission/ package with PermissionMode enum (Default, AcceptEdits, Plan, etc.)",
+        "Step 2: Define CanUseToolFunc type: func(toolName string, input map[string]any) (Decision, error)",
+        "Step 3: Define Decision type with Allow/Deny variants and reason field"
+      ],
+      "acceptance_criteria": [
+        "PermissionMode covers all modes from the Python SDK",
+        "CanUseToolFunc signature enables custom permission logic",
+        "Decision type clearly communicates allow/deny with optional reason"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0001"],
+      "parallel_group": "extensions",
+      "priority": 4
+    },
+    {
+      "id": "CASG-0009",
+      "description": "Implement MCP tool system: Tool interface (Name, Description, InputSchema, Run), MCP server configuration types (stdio, SSE, HTTP, SDK), and NewMCPServer() constructor for creating tool-serving MCP servers",
+      "category": "feat",
+      "commit": "feat(mcp): add Tool interface and MCP server configuration",
+      "steps": [
+        "Step 1: Create mcp/ package with Tool interface: Name() string, Description() string, InputSchema() json.RawMessage, Run(ctx, input) (output, error)",
+        "Step 2: Define MCP server config types: StdioServerConfig, SSEServerConfig, HTTPServerConfig, SDKServerConfig",
+        "Step 3: Implement NewMCPServer(tools ...Tool) that creates an SDK-type MCP server config",
+        "Step 4: Implement server config serialization for passing to CLI via options"
+      ],
+      "acceptance_criteria": [
+        "Tool interface is implementable by user code",
+        "All 4 server config types are defined with appropriate fields",
+        "NewMCPServer() produces a valid config from Tool implementations",
+        "Server configs serialize correctly for CLI consumption"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0001"],
+      "parallel_group": "extensions",
+      "priority": 4
+    },
+    {
+      "id": "CASG-0010",
+      "description": "Implement session management: SessionStore interface, InMemorySessionStore, and standalone functions for List, Get, Fork, Rename, Tag, Delete operations",
+      "category": "feat",
+      "commit": "feat(session): add session management and SessionStore interface",
+      "steps": [
+        "Step 1: Create session/ package with Session struct and metadata types",
+        "Step 2: Define SessionStore interface with CRUD methods",
+        "Step 3: Implement InMemorySessionStore as default implementation",
+        "Step 4: Implement standalone functions: List, Get, Fork, Rename, Tag, Delete using SessionStore"
+      ],
+      "acceptance_criteria": [
+        "SessionStore interface enables custom storage backends",
+        "InMemorySessionStore passes all CRUD operations",
+        "Standalone functions work independently of Client lifecycle"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0001"],
+      "parallel_group": "extensions",
+      "priority": 4
+    }
+  ]
+}

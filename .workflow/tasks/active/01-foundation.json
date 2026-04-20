@@ -1,0 +1,81 @@
+{
+  "phase": {
+    "id": "foundation",
+    "name": "Foundation & Transport",
+    "depends_on_phases": [],
+    "exit_criteria": "All message types, error types, transport interface, and internal parsing compile cleanly with go build ./..."
+  },
+  "tasks": [
+    {
+      "id": "CASG-0001",
+      "description": "Initialize Go module and implement all base types: message types (UserMessage, AssistantMessage, SystemMessage, ResultMessage, TaskStarted, TaskProgress, TaskNotification), content blocks (TextBlock, ThinkingBlock, ToolUseBlock, ToolResultBlock), and typed error hierarchy (CLINotFoundError, ProcessError, JSONDecodeError, MessageParseError)",
+      "category": "feat",
+      "commit": "feat(types): add message types, content blocks, and error hierarchy",
+      "steps": [
+        "Step 1: Initialize go.mod with module path github.com/johnayoung/claude-agent-sdk-go and Go 1.23 minimum",
+        "Step 2: Create agent/ package with all message types as structs implementing a Message interface",
+        "Step 3: Create agent/ content block types with a ContentBlock interface and concrete implementations",
+        "Step 4: Create agent/ error types as structs implementing error interface, supporting errors.As()",
+        "Step 5: Create additional types: RateLimitInfo, ContextUsage, McpServerStatus, AgentDefinition, SandboxConfig"
+      ],
+      "acceptance_criteria": [
+        "go build ./... succeeds with no errors",
+        "All message types implement a common Message interface with Type() method",
+        "All content blocks implement a ContentBlock interface",
+        "Error types support errors.As() unwrapping with contextual fields"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": [],
+      "parallel_group": null,
+      "priority": 1
+    },
+    {
+      "id": "CASG-0002",
+      "description": "Define public Transport interface and implement default subprocess transport that manages Claude Code CLI via os/exec, communicating over stdin/stdout JSON lines",
+      "category": "feat",
+      "commit": "feat(transport): add Transport interface and subprocess implementation",
+      "steps": [
+        "Step 1: Create transport/ package with Transport interface (Start, Send, Receive, Close methods)",
+        "Step 2: Implement SubprocessTransport using os/exec to launch claude CLI with appropriate flags",
+        "Step 3: Implement CLI discovery: search PATH for 'claude' binary, support WithCLIPath override",
+        "Step 4: Handle process lifecycle: start, stdin writes, stdout reads, graceful shutdown, context cancellation"
+      ],
+      "acceptance_criteria": [
+        "Transport interface is exported and documentable",
+        "SubprocessTransport discovers CLI in PATH or returns CLINotFoundError",
+        "WithCLIPath option overrides PATH discovery",
+        "Context cancellation terminates the subprocess cleanly"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0001"],
+      "parallel_group": null,
+      "priority": 2
+    },
+    {
+      "id": "CASG-0003",
+      "description": "Implement internal JSON-lines parser that reads newline-delimited JSON from transport and deserializes into typed Message structs using a discriminator field",
+      "category": "feat",
+      "commit": "feat(internal): add JSON-lines message parser",
+      "steps": [
+        "Step 1: Create internal/parse package with line-by-line JSON reader",
+        "Step 2: Implement message type discrimination based on type field in JSON",
+        "Step 3: Handle malformed JSON (return JSONDecodeError) and unknown message types gracefully"
+      ],
+      "acceptance_criteria": [
+        "Parser correctly deserializes all message types from JSON lines",
+        "Malformed JSON returns JSONDecodeError with raw line content",
+        "Unknown message types are handled without panic (logged or wrapped)"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0001"],
+      "parallel_group": null,
+      "priority": 2
+    }
+  ]
+}

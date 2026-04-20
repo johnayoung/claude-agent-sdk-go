@@ -1,0 +1,80 @@
+{
+  "phase": {
+    "id": "testing-examples",
+    "name": "Testing & Examples",
+    "depends_on_phases": ["core-api"],
+    "exit_criteria": "Mock transport, test helpers, runnable example programs, and open source scaffolding exist with go build/test passing"
+  },
+  "tasks": [
+    {
+      "id": "CASG-0011",
+      "description": "Implement testing subpackage with MockTransport (pre-loaded message sequences), test helper functions for building messages, and assertions for common patterns",
+      "category": "test",
+      "commit": "test(testing): add mock transport and test helpers",
+      "steps": [
+        "Step 1: Create testing/ package (exported as agenttest to avoid conflict) with MockTransport struct",
+        "Step 2: Implement NewMockTransport(messages ...Message) that replays messages in sequence",
+        "Step 3: Add message builder helpers: NewTextMessage(), NewToolUseMessage(), NewResultMessage()",
+        "Step 4: Add assertion helpers for common test patterns"
+      ],
+      "acceptance_criteria": [
+        "MockTransport implements Transport interface and replays configured messages",
+        "Message builders produce valid typed messages with minimal boilerplate",
+        "Package compiles as agenttest (or similar) to avoid testing package conflict"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0006"],
+      "parallel_group": null,
+      "priority": 6
+    },
+    {
+      "id": "CASG-0012",
+      "description": "Create runnable example programs demonstrating: basic query, multi-turn client, custom hooks, MCP tools, and session management",
+      "category": "docs",
+      "commit": "docs(examples): add runnable example programs",
+      "steps": [
+        "Step 1: Create examples/basic-query/ with minimal Query() usage",
+        "Step 2: Create examples/multi-turn/ demonstrating Client with follow-up queries",
+        "Step 3: Create examples/custom-tools/ showing Tool interface implementation and MCP server"
+      ],
+      "acceptance_criteria": [
+        "All examples compile with go build ./examples/...",
+        "Each example demonstrates a distinct SDK capability",
+        "Examples include comments explaining the pattern being demonstrated"
+      ],
+      "passing": false,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0011"],
+      "parallel_group": null,
+      "priority": 7
+    },
+    {
+      "id": "CASG-0013",
+      "description": "Prepare repository for public consumption: LICENSE (MIT), CONTRIBUTING.md, CI via GitHub Actions (build, test, vet), README with badges/install/quickstart, and tag v0.0.1 as initial release",
+      "category": "chore",
+      "commit": "chore: add open source scaffolding (license, CI, README)",
+      "steps": [
+        "Step 1: Add MIT LICENSE file",
+        "Step 2: Add CONTRIBUTING.md with minimal guidance (fork, branch, test, PR)",
+        "Step 3: Add .github/workflows/ci.yml running go build ./..., go test ./..., and go vet ./... on push/PR for Go 1.23+",
+        "Step 4: Add README.md with module install, quickstart code snippet, CI badge, and pkg.go.dev badge",
+        "Step 5: Tag v0.0.1 after all tasks complete (semver, no pre-release suffix)"
+      ],
+      "acceptance_criteria": [
+        "go vet ./... passes with zero issues",
+        "GitHub Actions workflow is valid YAML and covers Go 1.23+",
+        "README quickstart compiles as written",
+        "git tag v0.0.1 exists and go module is fetchable at that version"
+      ],
+      "passing": false,
+      "implementation_notes": "Versioning: v0.0.1 signals initial development. Bump minor for new features, patch for fixes. No v1.0.0 until API is stable.",
+      "github_item_id": null,
+      "prerequisites": ["CASG-0012"],
+      "parallel_group": null,
+      "priority": 7
+    }
+  ]
+}
