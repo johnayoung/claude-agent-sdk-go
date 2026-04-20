@@ -54,6 +54,18 @@ Message updates (`message.go`):
 - `TaskNotificationMessage.Status` → `TaskNotificationStatus` type
 - `TaskNotificationMessage.Usage` → `*TaskUsage` (pointer, optional)
 
+Second pass additions:
+- `ThinkingAdaptive()`, `ThinkingEnabled()`, `ThinkingDisabled()` — constructors matching Python's discriminated union variants
+- `permission.ResultAllow`, `permission.ResultDeny` — explicit result types; top-level aliases `PermissionResultAllow`, `PermissionResultDeny`
+- `ClaudeSDKError` — base error type for all SDK errors
+- `ToolAnnotations`, `SdkMcpTool` — generic tool annotation types
+- `SessionListSubkeysKey` — helper key type for subkey enumeration
+- `hooks.HookContext` — ambient state for hook callbacks
+- Hook wire-format types (`hooks`): `BaseHookInput`, `PreToolUseHookWireInput`, `PostToolUseHookWireInput`, `PostToolUseFailureHookWireInput`, `UserPromptSubmitHookWireInput`, `StopHookWireInput`, `SubagentStopHookWireInput`, `PreCompactHookWireInput`, `NotificationHookWireInput`, `SubagentStartHookWireInput`, `PermissionRequestHookWireInput`
+- Hook-specific output types (`hooks`): `PreToolUseHookSpecificOutput`, `PostToolUseHookSpecificOutput`, `PostToolUseFailureHookSpecificOutput`, `NotificationHookSpecificOutput`, `SubagentStartHookSpecificOutput`, `PermissionRequestHookSpecificOutput`
+- `hooks.HookJSONOutput`, `hooks.HookMatcher` — hook configuration types
+- Store-backed session functions: `ListSessionsFromStore`, `GetSessionInfoFromStore`, `GetSessionMessagesFromStore`, `ListSubagentsFromStore`, `GetSubagentMessagesFromStore`, `DeleteSessionViaStore`, `RenameSessionViaStore`, `TagSessionViaStore`, `ForkSessionViaStore`
+
 **Key files to compare:**
 - Python: `__init__.py`, `types.py`
 - Go: `message.go`, `types.go`, `content.go`, `options.go`, `query.go`, `client.go`

@@ -181,6 +181,171 @@ type ErrorInput struct {
 // ErrorOutput is returned after an Error handler runs.
 type ErrorOutput struct{}
 
+// HookContext carries ambient state available to all hook callbacks.
+type HookContext struct {
+	Signal any
+}
+
+// --- Wire-format types (JSON protocol between SDK and CLI) ---
+
+// BaseHookInput contains fields common to all hook inputs on the wire.
+type BaseHookInput struct {
+	SessionID      string `json:"session_id"`
+	TranscriptPath string `json:"transcript_path"`
+	Cwd            string `json:"cwd"`
+	PermissionMode string `json:"permission_mode,omitempty"`
+}
+
+// PreToolUseHookWireInput is the JSON wire format for PreToolUse hook events.
+type PreToolUseHookWireInput struct {
+	BaseHookInput
+	HookEventName string         `json:"hook_event_name"`
+	ToolName      string         `json:"tool_name"`
+	ToolInput     map[string]any `json:"tool_input"`
+	ToolUseID     string         `json:"tool_use_id"`
+}
+
+// PostToolUseHookWireInput is the JSON wire format for PostToolUse hook events.
+type PostToolUseHookWireInput struct {
+	BaseHookInput
+	HookEventName string         `json:"hook_event_name"`
+	ToolName      string         `json:"tool_name"`
+	ToolInput     map[string]any `json:"tool_input"`
+	ToolResponse  any            `json:"tool_response"`
+	ToolUseID     string         `json:"tool_use_id"`
+}
+
+// PostToolUseFailureHookWireInput is the JSON wire format for PostToolUseFailure hook events.
+type PostToolUseFailureHookWireInput struct {
+	BaseHookInput
+	HookEventName string         `json:"hook_event_name"`
+	ToolName      string         `json:"tool_name"`
+	ToolInput     map[string]any `json:"tool_input"`
+	ToolUseID     string         `json:"tool_use_id"`
+	Error         string         `json:"error"`
+	IsInterrupt   bool           `json:"is_interrupt,omitempty"`
+}
+
+// UserPromptSubmitHookWireInput is the JSON wire format for UserPromptSubmit hook events.
+type UserPromptSubmitHookWireInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	Prompt        string `json:"prompt"`
+}
+
+// StopHookWireInput is the JSON wire format for Stop hook events.
+type StopHookWireInput struct {
+	BaseHookInput
+	HookEventName  string `json:"hook_event_name"`
+	StopHookActive bool   `json:"stop_hook_active"`
+}
+
+// SubagentStopHookWireInput is the JSON wire format for SubagentStop hook events.
+type SubagentStopHookWireInput struct {
+	BaseHookInput
+	HookEventName       string `json:"hook_event_name"`
+	StopHookActive      bool   `json:"stop_hook_active"`
+	AgentID             string `json:"agent_id"`
+	AgentTranscriptPath string `json:"agent_transcript_path"`
+	AgentType           string `json:"agent_type"`
+}
+
+// PreCompactHookWireInput is the JSON wire format for PreCompact hook events.
+type PreCompactHookWireInput struct {
+	BaseHookInput
+	HookEventName      string `json:"hook_event_name"`
+	Trigger            string `json:"trigger"`
+	CustomInstructions string `json:"custom_instructions,omitempty"`
+}
+
+// NotificationHookWireInput is the JSON wire format for Notification hook events.
+type NotificationHookWireInput struct {
+	BaseHookInput
+	HookEventName    string `json:"hook_event_name"`
+	Message          string `json:"message"`
+	Title            string `json:"title,omitempty"`
+	NotificationType string `json:"notification_type"`
+}
+
+// SubagentStartHookWireInput is the JSON wire format for SubagentStart hook events.
+type SubagentStartHookWireInput struct {
+	BaseHookInput
+	HookEventName string `json:"hook_event_name"`
+	AgentID       string `json:"agent_id"`
+	AgentType     string `json:"agent_type"`
+}
+
+// PermissionRequestHookWireInput is the JSON wire format for PermissionRequest hook events.
+type PermissionRequestHookWireInput struct {
+	BaseHookInput
+	HookEventName        string         `json:"hook_event_name"`
+	ToolName             string         `json:"tool_name"`
+	ToolInput            map[string]any `json:"tool_input"`
+	PermissionSuggestions []any         `json:"permission_suggestions,omitempty"`
+}
+
+// --- Hook-specific output types (returned in hookSpecificOutput field) ---
+
+// PreToolUseHookSpecificOutput is the hook-specific output for PreToolUse events.
+type PreToolUseHookSpecificOutput struct {
+	HookEventName          string         `json:"hookEventName"`
+	PermissionDecision     string         `json:"permissionDecision,omitempty"`
+	PermissionDecisionReason string       `json:"permissionDecisionReason,omitempty"`
+	UpdatedInput           map[string]any `json:"updatedInput,omitempty"`
+	AdditionalContext      string         `json:"additionalContext,omitempty"`
+}
+
+// PostToolUseHookSpecificOutput is the hook-specific output for PostToolUse events.
+type PostToolUseHookSpecificOutput struct {
+	HookEventName      string `json:"hookEventName"`
+	AdditionalContext  string `json:"additionalContext,omitempty"`
+	UpdatedMCPToolOutput any  `json:"updatedMCPToolOutput,omitempty"`
+}
+
+// PostToolUseFailureHookSpecificOutput is the hook-specific output for PostToolUseFailure events.
+type PostToolUseFailureHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
+// NotificationHookSpecificOutput is the hook-specific output for Notification events.
+type NotificationHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
+// SubagentStartHookSpecificOutput is the hook-specific output for SubagentStart events.
+type SubagentStartHookSpecificOutput struct {
+	HookEventName     string `json:"hookEventName"`
+	AdditionalContext string `json:"additionalContext,omitempty"`
+}
+
+// PermissionRequestHookSpecificOutput is the hook-specific output for PermissionRequest events.
+type PermissionRequestHookSpecificOutput struct {
+	HookEventName string         `json:"hookEventName"`
+	Decision      map[string]any `json:"decision"`
+}
+
+// HookJSONOutput is the JSON envelope returned by hook processes.
+type HookJSONOutput struct {
+	Continue           *bool          `json:"continue,omitempty"`
+	SuppressOutput     bool           `json:"suppressOutput,omitempty"`
+	StopReason         string         `json:"stopReason,omitempty"`
+	Decision           string         `json:"decision,omitempty"`
+	SystemMessage      string         `json:"systemMessage,omitempty"`
+	Reason             string         `json:"reason,omitempty"`
+	HookSpecificOutput any            `json:"hookSpecificOutput,omitempty"`
+	Async              bool           `json:"async,omitempty"`
+	AsyncTimeout       int            `json:"asyncTimeout,omitempty"`
+}
+
+// HookMatcher pairs a pattern with callbacks and a timeout.
+type HookMatcher struct {
+	Matcher string
+	Hooks   []any
+	Timeout *float64
+}
+
 // Handler function types — one per event.
 
 type PreToolUseHandler func(ctx context.Context, input *PreToolUseInput) (*PreToolUseOutput, error)

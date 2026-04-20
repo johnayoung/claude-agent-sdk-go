@@ -14,6 +14,21 @@ type ThinkingConfig struct {
 	BudgetTokens int    // only used when Type is "enabled"
 }
 
+// ThinkingAdaptive returns a ThinkingConfig that enables adaptive thinking.
+func ThinkingAdaptive() ThinkingConfig {
+	return ThinkingConfig{Type: "adaptive"}
+}
+
+// ThinkingEnabled returns a ThinkingConfig with a fixed token budget.
+func ThinkingEnabled(budgetTokens int) ThinkingConfig {
+	return ThinkingConfig{Type: "enabled", BudgetTokens: budgetTokens}
+}
+
+// ThinkingDisabled returns a ThinkingConfig that disables thinking.
+func ThinkingDisabled() ThinkingConfig {
+	return ThinkingConfig{Type: "disabled"}
+}
+
 // PermissionMode aliases permission.Mode for convenience.
 type PermissionMode = permission.Mode
 
@@ -34,6 +49,12 @@ type PermissionUpdate = permission.Update
 
 // ToolPermissionContext aliases permission.ToolContext for convenience.
 type ToolPermissionContext = permission.ToolContext
+
+// PermissionResultAllow aliases permission.ResultAllow for convenience.
+type PermissionResultAllow = permission.ResultAllow
+
+// PermissionResultDeny aliases permission.ResultDeny for convenience.
+type PermissionResultDeny = permission.ResultDeny
 
 // Transporter is the communication layer interface. The default implementation
 // uses subprocess communication with the Claude CLI.

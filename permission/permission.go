@@ -99,5 +99,17 @@ func (d Decision) UpdatedInput() map[string]any { return d.updatedInput }
 // UpdatedPermissions returns permission updates to apply, or nil.
 func (d Decision) UpdatedPermissions() []Update { return d.updatedPerms }
 
+// ResultAllow is returned by CanUseToolFunc when the tool call is permitted.
+type ResultAllow struct {
+	UpdatedInput       map[string]any `json:"updated_input,omitempty"`
+	UpdatedPermissions []Update       `json:"updated_permissions,omitempty"`
+}
+
+// ResultDeny is returned by CanUseToolFunc when the tool call is blocked.
+type ResultDeny struct {
+	Message   string `json:"message,omitempty"`
+	Interrupt bool   `json:"interrupt,omitempty"`
+}
+
 // CanUseToolFunc gates tool execution. Return Allow to permit, Deny to block.
 type CanUseToolFunc func(toolName string, input map[string]any, ctx ToolContext) (Decision, error)

@@ -250,3 +250,50 @@ func ProjectKeyForDirectory(cliPath, dir string) (string, error) {
 	}
 	return string(out), nil
 }
+
+// --- Store-backed session functions ---
+
+// ListSessionsFromStore lists sessions using a SessionStore backend.
+func ListSessionsFromStore(ctx context.Context, store SessionStore, projectKey string) ([]SessionStoreListEntry, error) {
+	return store.ListSessions(ctx, projectKey)
+}
+
+// GetSessionInfoFromStore returns session info by loading entries from a SessionStore.
+func GetSessionInfoFromStore(ctx context.Context, store SessionStore, projectKey, sessionID string) ([]SessionStoreEntry, error) {
+	return store.Load(ctx, SessionKey{ProjectKey: projectKey, SessionID: sessionID})
+}
+
+// GetSessionMessagesFromStore returns all messages for a session from a SessionStore.
+func GetSessionMessagesFromStore(ctx context.Context, store SessionStore, projectKey, sessionID string) ([]SessionStoreEntry, error) {
+	return store.Load(ctx, SessionKey{ProjectKey: projectKey, SessionID: sessionID})
+}
+
+// ListSubagentsFromStore lists sub-agent subkeys within a session from a SessionStore.
+func ListSubagentsFromStore(ctx context.Context, store SessionStore, projectKey, sessionID string) ([]string, error) {
+	return store.ListSubkeys(ctx, SessionKey{ProjectKey: projectKey, SessionID: sessionID})
+}
+
+// GetSubagentMessagesFromStore returns messages for a sub-agent from a SessionStore.
+func GetSubagentMessagesFromStore(ctx context.Context, store SessionStore, projectKey, sessionID, subagentID string) ([]SessionStoreEntry, error) {
+	return store.Load(ctx, SessionKey{ProjectKey: projectKey, SessionID: sessionID, Subpath: subagentID})
+}
+
+// RenameSessionViaStore is not supported by the store interface; it requires CLI access.
+func RenameSessionViaStore(ctx context.Context, cliPath, sessionID, title string) error {
+	return RenameSession(ctx, cliPath, sessionID, title)
+}
+
+// TagSessionViaStore is not supported by the store interface; it requires CLI access.
+func TagSessionViaStore(ctx context.Context, cliPath, sessionID, tag string) error {
+	return TagSession(ctx, cliPath, sessionID, tag)
+}
+
+// DeleteSessionViaStore deletes a session from a SessionStore.
+func DeleteSessionViaStore(ctx context.Context, store SessionStore, projectKey, sessionID string) error {
+	return store.Delete(ctx, SessionKey{ProjectKey: projectKey, SessionID: sessionID})
+}
+
+// ForkSessionViaStore is not supported by the store interface; it requires CLI access.
+func ForkSessionViaStore(ctx context.Context, cliPath, sessionID string) (*ForkSessionResult, error) {
+	return ForkSession(ctx, cliPath, sessionID)
+}

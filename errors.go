@@ -2,6 +2,21 @@ package claude
 
 import "fmt"
 
+// ClaudeSDKError is the base error type for all SDK errors.
+type ClaudeSDKError struct {
+	Message string
+	Err     error
+}
+
+func (e *ClaudeSDKError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("claude sdk: %s: %v", e.Message, e.Err)
+	}
+	return fmt.Sprintf("claude sdk: %s", e.Message)
+}
+
+func (e *ClaudeSDKError) Unwrap() error { return e.Err }
+
 // CLINotFoundError indicates the Claude CLI binary could not be found.
 type CLINotFoundError struct {
 	SearchPath string

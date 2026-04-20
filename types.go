@@ -222,6 +222,26 @@ type McpStatusResponse struct {
 	MCPServers []McpServerStatus `json:"mcpServers"`
 }
 
+// ToolAnnotations describes behavioral annotations for a tool.
+type ToolAnnotations struct {
+	ReadOnly    *bool `json:"readOnly,omitempty"`
+	Destructive *bool `json:"destructive,omitempty"`
+	OpenWorld   *bool `json:"openWorld,omitempty"`
+}
+
+// SdkMcpTool represents an MCP tool exposed through the SDK.
+type SdkMcpTool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Annotations *ToolAnnotations `json:"annotations,omitempty"`
+}
+
+// SessionListSubkeysKey identifies a session for subkey enumeration.
+type SessionListSubkeysKey struct {
+	ProjectKey string
+	SessionID  string
+}
+
 // ContextUsageCategory describes token usage for a single context category.
 type ContextUsageCategory struct {
 	Name       string `json:"name"`
