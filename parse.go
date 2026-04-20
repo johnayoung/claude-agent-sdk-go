@@ -37,6 +37,8 @@ func parseLine(line []byte) (Message, error) {
 			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
+	case "transcript_mirror":
+		return parseTranscriptMirror(line)
 	case "control_request":
 		return parseControlRequest(line)
 	default:

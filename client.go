@@ -120,6 +120,17 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 				continue
 			}
 
+			if mirror, ok := msg.(*transcriptMirrorMessage); ok {
+				if c.opts.SessionStore != nil {
+					if errMsg := handleTranscriptMirror(qCtx, c.opts.SessionStore, c.opts.ProjectsDir, mirror); errMsg != nil {
+						if !yield(errMsg, nil) {
+							return
+						}
+					}
+				}
+				continue
+			}
+
 			if cr, ok := msg.(*ControlRequestMessage); ok {
 				if err := handleControlRequest(qCtx, tr, c.opts, cr, cancel); err != nil {
 					if !yield(nil, err) {

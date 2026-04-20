@@ -78,6 +78,17 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 				continue
 			}
 
+			if mirror, ok := msg.(*transcriptMirrorMessage); ok {
+				if o.SessionStore != nil {
+					if errMsg := handleTranscriptMirror(qCtx, o.SessionStore, o.ProjectsDir, mirror); errMsg != nil {
+						if !yield(errMsg, nil) {
+							return
+						}
+					}
+				}
+				continue
+			}
+
 			if cr, ok := msg.(*ControlRequestMessage); ok {
 				if err := handleControlRequest(qCtx, tr, o, cr, cancel); err != nil {
 					if !yield(nil, err) {

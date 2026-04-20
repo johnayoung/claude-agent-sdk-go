@@ -136,39 +136,90 @@ New options (`options.go`):
 
 ---
 
-## Phase 4: Behavioral Parity
+## Phase 4: Behavioral Parity [DONE]
 
 **Goal:** Logic and control flow matches the reference SDK.
 
-**Steps:**
-1. **Session resume/continuation:** Compare `_internal/sessions.py` and `_internal/session_resume.py` against our `client.go`
-2. **Error handling:** Compare `_errors.py` against our `errors.go` — what errors exist, when are they raised vs. swallowed
-3. **Hook/event dispatch:** Compare what messages trigger which callbacks in the Python SDK's client vs. our `dispatchHooks()` in `query.go`
-4. **Permission mode handling:** Compare how the Python SDK handles permission callbacks vs. our `permission/` package
-5. **Unknown message handling:** Python returns None and continues; verify we return nil and skip
+**Changes made:**
 
-**Key files to compare:**
-- Python: `_internal/client.py`, `_internal/sessions.py`, `_internal/session_resume.py`, `_errors.py`
-- Go: `client.go`, `query.go`, `errors.go`, `permission/`
+Control protocol (`control.go`, `control_handler.go`):
+- `ControlRequestMessage` parsed from wire, never yielded to callers
+- `handleControlRequest` dispatches by subtype: `can_use_tool`, `hook_callback`, `interrupt`, `set_permission_mode`, `mcp_message`, `rewind_files`, `mcp_reconnect`, `mcp_toggle`, `stop_task`
+- Permission handler maps `Decision` to allow/deny with `updated_input`, `updated_permissions`, `message`, `interrupt`
+- Nil `CanUseTool` defaults to allow
+- Interrupt cancels context via `cancelFn()`
+- All 13 hook event types dispatched with `session_id` propagation
+- Error paths send `ControlErrorResponse`
+- No goroutines — protocol is synchronous
+- Removed redundant `dispatchHooks` local dispatch (hooks now flow exclusively through control protocol)
+
+**Key files:**
+- `control.go`, `control_handler.go`, `control_test.go`
+- `query.go`, `client.go` (integration points)
 
 ---
 
-## Phase 5: Missing Features
+## Phase 5: Session Store Persistence [TODO]
 
-**Goal:** Identify entire capabilities present in the Python SDK that we haven't implemented.
+**Goal:** Wire up `SessionStore` so messages are persisted as they stream in during a query.
+
+**Context:** `SessionStore` interface, `InMemorySessionStore`, and `--session-mirror` CLI flag all exist but the query loop doesn't actually persist messages.
 
 **Steps:**
-1. **Session store interface:** `_internal/session_store.py` — custom persistence backends
-2. **Structured output:** `ResultMessage.structured_output` — JSON schema-validated outputs
-3. **Transcript mirroring:** `_internal/transcript_mirror_batcher.py` — real-time transcript streaming
-4. **Control protocol:** bidirectional messages between SDK and CLI (control_request/control_response)
-5. **File checkpointing / rewind:** `rewind_files()` support via UserMessage.uuid
-6. **Session mutations:** `_internal/session_mutations.py` — modifying session state
-
-For each, determine:
-- Is it critical for basic SDK functionality?
-- Is it used by the examples/common use cases?
-- Should we implement it now or defer?
+1. Fetch Python SDK's `_internal/client.py` — understand `_persist_message` behavior (what's stored, key structure, subpath conventions)
+2. Add persistence call in both `query.go` and `client.go` query loops when `Options.SessionStore` is non-nil
+3. Key by `(project_key, session_id, subpath)` matching Python conventions
+4. Keep it synchronous — no goroutines
 
 **Key files:**
-- Python: `_internal/session_store.py`, `_internal/transcript_mirror_batcher.py`, `_internal/session_mutations.py`, `_internal/client.py` (control protocol)
+- Python: `_internal/client.py` (`_persist_message`)
+- Go: `query.go`, `client.go`, `session.go`
+
+---
+
+## Phase 6: Transcript Mirroring [TODO]
+
+**Goal:** Real-time batched transcript streaming to external consumers.
+
+**Steps:**
+1. Fetch Python SDK's `_internal/transcript_mirror_batcher.py` — understand batching strategy, flush intervals, and wire format
+2. Implement a `TranscriptMirror` interface or callback that receives batched messages
+3. Integrate into the query loop (flush on result, periodic flush if needed)
+4. Respect `Options.SessionStore` presence as the trigger
+
+**Key files:**
+- Python: `_internal/transcript_mirror_batcher.py`
+- Go: new `mirror.go` or inline in `query.go`
+
+---
+
+## Phase 7: File Checkpointing and Rewind [TODO]
+
+**Goal:** Support file checkpoint/restore when the CLI requests a rewind.
+
+**Steps:**
+1. Fetch Python SDK's file checkpointing logic — understand when checkpoints are created and how `rewind_files` control requests trigger restoration
+2. Implement checkpoint creation (snapshot file state before tool execution)
+3. Handle `rewind_files` control request: restore files to checkpoint identified by `user_message_id`
+4. Gate behind `Options.FileCheckpointing` (already wires env var `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING`)
+
+**Key files:**
+- Python: `_internal/client.py` (checkpoint logic), control protocol handling
+- Go: `control_handler.go` (currently no-ops `rewind_files`), new `checkpoint.go`
+
+---
+
+## Phase 8: End-to-End Integration Tests [TODO]
+
+**Goal:** Verify complete flows work against the real CLI binary.
+
+**Steps:**
+1. Multi-turn conversation via `Client` with session resume
+2. Permission deny/allow flow with tool re-invocation
+3. Hook callback chain (pre_tool_use modifies input, post_tool_use observes output)
+4. Interrupt mid-stream and verify clean shutdown
+5. Session store round-trip: persist during query, read back via `GetSessionMessages`
+6. Structured output with JSON schema validation
+
+**Key files:**
+- New `integration_test.go` (build-tagged `//go:build integration`)

@@ -132,6 +132,7 @@ type Options struct {
 	ForkSession  bool
 	TaskBudget   *TaskBudget
 	SessionStore SessionStore
+	ProjectsDir  string
 
 	// Environment
 	CLIPath                  string
@@ -381,6 +382,11 @@ func WithLoadTimeout(ms int) Option {
 // WithSessionStore sets a custom session persistence backend.
 func WithSessionStore(store SessionStore) Option {
 	return func(o *Options) { o.SessionStore = store }
+}
+
+// WithProjectsDir sets the projects directory used for transcript mirror path resolution.
+func WithProjectsDir(dir string) Option {
+	return func(o *Options) { o.ProjectsDir = dir }
 }
 
 // WithExcludeDynamicSections controls whether dynamic sections are excluded from the session.
