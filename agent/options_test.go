@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/johnayoung/claude-agent-sdk-go/hooks"
+	"github.com/johnayoung/claude-agent-sdk-go/permission"
 )
 
 // stubTransport satisfies the Transporter interface for testing.
@@ -60,17 +61,23 @@ func TestWithPermissionMode(t *testing.T) {
 
 func TestWithCanUseTool(t *testing.T) {
 	called := false
-	fn := func(toolName string, input map[string]any) (bool, error) {
+	fn := func(toolName string, input map[string]any) (permission.Decision, error) {
 		called = true
-		return true, nil
+		return permission.Allow("allowed"), nil
 	}
 	o := NewOptions([]Option{WithCanUseTool(fn)})
 	if o.CanUseTool == nil {
 		t.Fatal("expected CanUseTool to be set")
 	}
-	o.CanUseTool("bash", nil) //nolint:errcheck
+	d, err := o.CanUseTool("bash", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !called {
 		t.Error("CanUseTool callback was not invoked")
+	}
+	if !d.Allowed() {
+		t.Error("expected Allow decision")
 	}
 }
 

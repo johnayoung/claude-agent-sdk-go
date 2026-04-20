@@ -5,22 +5,23 @@ import (
 	"os/exec"
 
 	"github.com/johnayoung/claude-agent-sdk-go/hooks"
+	"github.com/johnayoung/claude-agent-sdk-go/permission"
 )
 
-// PermissionMode controls how the agent handles tool permission requests.
-type PermissionMode string
+// PermissionMode aliases permission.Mode for convenience.
+type PermissionMode = permission.Mode
 
 const (
-	PermissionModeDefault          PermissionMode = "default"
-	PermissionModeAcceptEdits      PermissionMode = "acceptEdits"
-	PermissionModePlan             PermissionMode = "plan"
-	PermissionModeBypassPermissions PermissionMode = "bypassPermissions"
-	PermissionModeDontAsk          PermissionMode = "dontAsk"
-	PermissionModeAuto             PermissionMode = "auto"
+	PermissionModeDefault           = permission.ModeDefault
+	PermissionModeAcceptEdits       = permission.ModeAcceptEdits
+	PermissionModePlan              = permission.ModePlan
+	PermissionModeBypassPermissions = permission.ModeBypassPermissions
+	PermissionModeDontAsk           = permission.ModeDontAsk
+	PermissionModeAuto              = permission.ModeAuto
 )
 
-// CanUseToolFunc gates tool execution. Return true to allow, false to deny.
-type CanUseToolFunc func(toolName string, input map[string]any) (bool, error)
+// CanUseToolFunc aliases permission.CanUseToolFunc for convenience.
+type CanUseToolFunc = permission.CanUseToolFunc
 
 // Transporter is the communication layer interface. transport.SubprocessTransport satisfies this.
 type Transporter interface {
