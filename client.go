@@ -129,8 +129,6 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 				continue
 			}
 
-			dispatchHooks(qCtx, c.opts, msg)
-
 			if result, ok := msg.(*ResultMessage); ok {
 				if result.SessionID != "" {
 					c.mu.Lock()

@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/johnayoung/claude-agent-sdk-go/hooks"
 	"github.com/johnayoung/claude-agent-sdk-go/internal/transport"
 )
 
@@ -88,8 +87,6 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 				continue
 			}
 
-			dispatchHooks(qCtx, o, msg)
-
 			if !yield(msg, nil) {
 				return
 			}
@@ -98,58 +95,6 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 				return
 			}
 		}
-	}
-}
-
-func dispatchHooks(ctx context.Context, o *Options, msg Message) {
-	if o.Hooks == nil {
-		return
-	}
-	switch m := msg.(type) {
-	case *AssistantMessage:
-		for _, block := range m.Content {
-			switch b := block.(type) {
-			case *TextBlock:
-				o.Hooks.DispatchModelResponse(ctx, &hooks.ModelResponseInput{
-					Response: b.Text,
-				})
-			case *ToolUseBlock:
-				var input map[string]any
-				_ = json.Unmarshal(b.Input, &input)
-				o.Hooks.DispatchPreToolUse(ctx, &hooks.PreToolUseInput{
-					ToolName:  b.Name,
-					ToolInput: input,
-				})
-			case *ToolResultBlock:
-				var toolOutput string
-				if b.Content != nil {
-					toolOutput = string(b.Content)
-				}
-				var isError bool
-				if b.IsError != nil {
-					isError = *b.IsError
-				}
-				o.Hooks.DispatchPostToolUse(ctx, &hooks.PostToolUseInput{
-					ToolName:   "",
-					ToolOutput: toolOutput,
-					IsError:    isError,
-				})
-			}
-		}
-	case *ResultMessage:
-		o.Hooks.DispatchStop(ctx, &hooks.StopInput{
-			Reason:    m.Subtype,
-			SessionID: m.SessionID,
-		})
-	case *TaskNotificationMessage:
-		o.Hooks.DispatchNotificationArrived(ctx, &hooks.NotificationArrivedInput{
-			Title:   string(m.Status),
-			Message: m.Summary,
-		})
-	case *TaskStartedMessage:
-		o.Hooks.DispatchSessionStarted(ctx, &hooks.SessionStartedInput{
-			SessionID: m.SessionID,
-		})
 	}
 }
 
