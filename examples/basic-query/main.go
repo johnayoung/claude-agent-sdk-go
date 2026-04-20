@@ -31,7 +31,7 @@ func main() {
 			}
 		case *claude.ResultMessage:
 			fmt.Printf("\nsession: %s  turns: %d  cost: $%.6f\n",
-				m.SessionID, m.NumTurns, m.CostUSD)
+				m.SessionID, m.NumTurns, m.TotalCostUSD)
 		}
 	}
 }

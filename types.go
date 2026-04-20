@@ -1,30 +1,50 @@
 package claude
 
-// RateLimitInfo contains rate limit status from the API.
+import "encoding/json"
+
+// RateLimitStatus represents the rate limit state.
+type RateLimitStatus string
+
+const (
+	RateLimitAllowed        RateLimitStatus = "allowed"
+	RateLimitAllowedWarning RateLimitStatus = "allowed_warning"
+	RateLimitRejected       RateLimitStatus = "rejected"
+)
+
+// RateLimitType identifies which rate limit window applies.
+type RateLimitType string
+
+const (
+	RateLimitFiveHour    RateLimitType = "five_hour"
+	RateLimitSevenDay    RateLimitType = "seven_day"
+	RateLimitSevenDayOps RateLimitType = "seven_day_opus"
+	RateLimitSevenDaySon RateLimitType = "seven_day_sonnet"
+	RateLimitOverage     RateLimitType = "overage"
+)
+
+// RateLimitInfo contains rate limit status emitted by the CLI.
 type RateLimitInfo struct {
-	RequestsLimit     int   `json:"requests_limit"`
-	RequestsRemaining int   `json:"requests_remaining"`
-	RequestsReset     int64 `json:"requests_reset"`
-	TokensLimit       int   `json:"tokens_limit"`
-	TokensRemaining   int   `json:"tokens_remaining"`
-	TokensReset       int64 `json:"tokens_reset"`
+	Status                RateLimitStatus `json:"status"`
+	ResetsAt              *int64          `json:"resetsAt,omitempty"`
+	RateLimitType         RateLimitType   `json:"rateLimitType,omitempty"`
+	Utilization           *float64        `json:"utilization,omitempty"`
+	OverageStatus         RateLimitStatus `json:"overageStatus,omitempty"`
+	OverageResetsAt       *int64          `json:"overageResetsAt,omitempty"`
+	OverageDisabledReason string          `json:"overageDisabledReason,omitempty"`
+	Raw                   json.RawMessage `json:"-"`
 }
 
-// ContextUsage tracks token usage within a conversation.
-type ContextUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
-	CacheRead    int `json:"cache_read_tokens"`
-	CacheWrite   int `json:"cache_write_tokens"`
-}
-
-// McpServerStatus represents the connection status of an MCP server.
-type McpServerStatus struct {
-	Name      string   `json:"name"`
-	Status    string   `json:"status"`
-	Error     string   `json:"error,omitempty"`
-	NumTools  int      `json:"num_tools"`
-	ToolNames []string `json:"tool_names,omitempty"`
+// UnmarshalJSON implements custom unmarshaling to preserve the full raw dict.
+func (r *RateLimitInfo) UnmarshalJSON(data []byte) error {
+	type Alias RateLimitInfo
+	var a Alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*r = RateLimitInfo(a)
+	r.Raw = make(json.RawMessage, len(data))
+	copy(r.Raw, data)
+	return nil
 }
 
 // AgentDefinition describes a sub-agent configuration.

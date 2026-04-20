@@ -60,10 +60,10 @@ func (t *ctxTransport) Receive() ([]byte, error) {
 }
 
 var (
-	assistantJSON = []byte(`{"type":"assistant","role":"assistant","content":[{"type":"text","text":"Hello!"}]}`)
-	systemJSON    = []byte(`{"type":"system","content":"initialized"}`)
-	userJSON      = []byte(`{"type":"user","role":"user","content":[{"type":"text","text":"Hi"}]}`)
-	resultJSON    = []byte(`{"type":"result","subtype":"success","result":"done","cost_usd":0.001,"duration_ms":100,"is_error":false,"session_id":"s1","num_turns":1,"total_input_tokens":10,"total_output_tokens":5}`)
+	assistantJSON = []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"Hello!"}],"model":"claude-opus-4-5"}}`)
+	systemJSON    = []byte(`{"type":"system","subtype":"init"}`)
+	userJSON      = []byte(`{"type":"user","message":{"content":[{"type":"text","text":"Hi"}]}}`)
+	resultJSON    = []byte(`{"type":"result","subtype":"success","result":"done","total_cost_usd":0.001,"duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"s1","num_turns":1}`)
 )
 
 func TestQuery_YieldsMessages(t *testing.T) {

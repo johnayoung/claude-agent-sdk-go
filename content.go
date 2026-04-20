@@ -15,8 +15,9 @@ type TextBlock struct {
 func (b *TextBlock) BlockType() string { return "text" }
 
 type ThinkingBlock struct {
-	Type     string `json:"type"`
-	Thinking string `json:"thinking"`
+	Type      string `json:"type"`
+	Thinking  string `json:"thinking"`
+	Signature string `json:"signature,omitempty"`
 }
 
 func (b *ThinkingBlock) BlockType() string { return "thinking" }

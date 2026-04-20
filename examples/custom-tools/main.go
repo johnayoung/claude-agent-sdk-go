@@ -68,7 +68,7 @@ func main() {
 				}
 			}
 		case *claude.ResultMessage:
-			fmt.Printf("\ncost: $%.6f\n", m.CostUSD)
+			fmt.Printf("\ncost: $%.6f\n", m.TotalCostUSD)
 		}
 	}
 }

@@ -64,6 +64,10 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 				continue
 			}
 
+			if msg == nil {
+				continue
+			}
+
 			dispatchHooks(ctx, o, msg)
 
 			if !yield(msg, nil) {
@@ -109,12 +113,12 @@ func dispatchHooks(ctx context.Context, o *Options, msg Message) {
 			Reason:    m.Subtype,
 			SessionID: m.SessionID,
 		})
-	case *TaskNotification:
+	case *TaskNotificationMessage:
 		o.Hooks.DispatchNotificationArrived(ctx, &hooks.NotificationArrivedInput{
-			Title:   m.Title,
-			Message: m.Message,
+			Title:   m.Status,
+			Message: m.Summary,
 		})
-	case *TaskStarted:
+	case *TaskStartedMessage:
 		o.Hooks.DispatchSessionStarted(ctx, &hooks.SessionStartedInput{
 			SessionID: m.SessionID,
 		})

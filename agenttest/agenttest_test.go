@@ -56,8 +56,8 @@ func TestMockTransport_Send(t *testing.T) {
 
 func TestNewTextMessage(t *testing.T) {
 	msg := agenttest.NewTextMessage("greetings")
-	if msg.Role != "assistant" {
-		t.Errorf("expected role assistant, got %q", msg.Role)
+	if msg.Model == "" {
+		t.Error("expected non-empty model")
 	}
 	if len(msg.Content) != 1 {
 		t.Fatalf("expected 1 content block, got %d", len(msg.Content))

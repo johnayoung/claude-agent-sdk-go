@@ -82,6 +82,7 @@ type wireContentBlock struct {
 	Type      string          `json:"type"`
 	Text      string          `json:"text,omitempty"`
 	Thinking  string          `json:"thinking,omitempty"`
+	Signature string          `json:"signature,omitempty"`
 	ID        string          `json:"id,omitempty"`
 	Name      string          `json:"name,omitempty"`
 	Input     json.RawMessage `json:"input,omitempty"`
@@ -90,75 +91,115 @@ type wireContentBlock struct {
 	IsError   bool            `json:"is_error,omitempty"`
 }
 
-type wireContentMessage struct {
-	Type    string             `json:"type"`
-	Role    string             `json:"role"`
-	Content []wireContentBlock `json:"content"`
+type wireInnerMessage struct {
+	Content []wireContentBlock     `json:"content"`
+	Model   string                 `json:"model,omitempty"`
+	ID      string                 `json:"id,omitempty"`
+	Usage   map[string]any `json:"usage,omitempty"`
+}
+
+type wireAssistant struct {
+	Type            string           `json:"type"`
+	Message         wireInnerMessage `json:"message"`
+	ParentToolUseID string           `json:"parent_tool_use_id,omitempty"`
+	Error           string           `json:"error,omitempty"`
+	SessionID       string           `json:"session_id,omitempty"`
+	UUID            string           `json:"uuid,omitempty"`
+}
+
+type wireUser struct {
+	Type            string           `json:"type"`
+	Message         wireInnerMessage `json:"message"`
+	ParentToolUseID string           `json:"parent_tool_use_id,omitempty"`
+	UUID            string           `json:"uuid,omitempty"`
+	SessionID       string           `json:"session_id,omitempty"`
 }
 
 type wireSystem struct {
 	Type    string `json:"type"`
-	Content string `json:"content"`
+	Subtype string `json:"subtype"`
 }
 
 type wireResult struct {
-	Type        string  `json:"type"`
-	Subtype     string  `json:"subtype"`
-	Result      string  `json:"result"`
-	CostUSD     float64 `json:"cost_usd"`
-	DurationMS  int64   `json:"duration_ms"`
-	IsError     bool    `json:"is_error"`
-	SessionID   string  `json:"session_id"`
-	NumTurns    int     `json:"num_turns"`
-	TotalInput  int     `json:"total_input_tokens"`
-	TotalOutput int     `json:"total_output_tokens"`
+	Type         string  `json:"type"`
+	Subtype      string  `json:"subtype"`
+	Result       string  `json:"result,omitempty"`
+	TotalCostUSD float64 `json:"total_cost_usd,omitempty"`
+	DurationMS   int64   `json:"duration_ms"`
+	DurationAPIM int64   `json:"duration_api_ms"`
+	IsError      bool    `json:"is_error"`
+	SessionID    string  `json:"session_id"`
+	NumTurns     int     `json:"num_turns"`
 }
 
 type wireTaskStarted struct {
-	Type      string `json:"type"`
-	SessionID string `json:"session_id"`
-}
-
-type wireTaskProgress struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
+	Type        string `json:"type"`
+	Subtype     string `json:"subtype"`
+	TaskID      string `json:"task_id"`
+	Description string `json:"description"`
+	UUID        string `json:"uuid"`
+	SessionID   string `json:"session_id"`
 }
 
 type wireTaskNotification struct {
-	Type    string `json:"type"`
-	Title   string `json:"title"`
-	Message string `json:"message"`
+	Type       string `json:"type"`
+	Subtype    string `json:"subtype"`
+	TaskID     string `json:"task_id"`
+	Status     string `json:"status"`
+	OutputFile string `json:"output_file"`
+	Summary    string `json:"summary"`
+	UUID       string `json:"uuid"`
+	SessionID  string `json:"session_id"`
 }
 
 func marshalMessage(msg claude.Message) ([]byte, error) {
 	switch v := msg.(type) {
 	case *claude.AssistantMessage:
-		w := wireContentMessage{Type: "assistant", Role: v.Role, Content: blocksToWire(v.Content)}
+		w := wireAssistant{
+			Type:            "assistant",
+			Message:         wireInnerMessage{Content: blocksToWire(v.Content), Model: v.Model},
+			ParentToolUseID: v.ParentToolUseID,
+			Error:           v.Error,
+			SessionID:       v.SessionID,
+			UUID:            v.UUID,
+		}
 		return json.Marshal(w)
 	case *claude.UserMessage:
-		w := wireContentMessage{Type: "user", Role: v.Role, Content: blocksToWire(v.Content)}
+		w := wireUser{
+			Type:            "user",
+			Message:         wireInnerMessage{Content: blocksToWire(v.Content)},
+			ParentToolUseID: v.ParentToolUseID,
+			UUID:            v.UUID,
+			SessionID:       v.SessionID,
+		}
 		return json.Marshal(w)
 	case *claude.SystemMessage:
-		return json.Marshal(wireSystem{Type: "system", Content: v.Content})
+		return json.Marshal(wireSystem{Type: "system", Subtype: v.Subtype})
+	case *claude.TaskStartedMessage:
+		return json.Marshal(wireTaskStarted{
+			Type: "system", Subtype: "task_started",
+			TaskID: v.TaskID, Description: v.Description,
+			UUID: v.UUID, SessionID: v.SessionID,
+		})
+	case *claude.TaskNotificationMessage:
+		return json.Marshal(wireTaskNotification{
+			Type: "system", Subtype: "task_notification",
+			TaskID: v.TaskID, Status: v.Status,
+			OutputFile: v.OutputFile, Summary: v.Summary,
+			UUID: v.UUID, SessionID: v.SessionID,
+		})
 	case *claude.ResultMessage:
 		return json.Marshal(wireResult{
-			Type:        "result",
-			Subtype:     v.Subtype,
-			Result:      v.Result,
-			CostUSD:     v.CostUSD,
-			DurationMS:  v.DurationMS,
-			IsError:     v.IsError,
-			SessionID:   v.SessionID,
-			NumTurns:    v.NumTurns,
-			TotalInput:  v.TotalInput,
-			TotalOutput: v.TotalOutput,
+			Type:         "result",
+			Subtype:      v.Subtype,
+			Result:       v.Result,
+			TotalCostUSD: v.TotalCostUSD,
+			DurationMS:   v.DurationMS,
+			DurationAPIM: v.DurationAPIMS,
+			IsError:      v.IsError,
+			SessionID:    v.SessionID,
+			NumTurns:     v.NumTurns,
 		})
-	case *claude.TaskStarted:
-		return json.Marshal(wireTaskStarted{Type: "task_started", SessionID: v.SessionID})
-	case *claude.TaskProgress:
-		return json.Marshal(wireTaskProgress{Type: "task_progress", Message: v.Message})
-	case *claude.TaskNotification:
-		return json.Marshal(wireTaskNotification{Type: "task_notification", Title: v.Title, Message: v.Message})
 	default:
 		return nil, fmt.Errorf("unsupported message type %T", msg)
 	}
@@ -171,7 +212,7 @@ func blocksToWire(blocks []claude.ContentBlock) []wireContentBlock {
 		case *claude.TextBlock:
 			out = append(out, wireContentBlock{Type: "text", Text: v.Text})
 		case *claude.ThinkingBlock:
-			out = append(out, wireContentBlock{Type: "thinking", Thinking: v.Thinking})
+			out = append(out, wireContentBlock{Type: "thinking", Thinking: v.Thinking, Signature: v.Signature})
 		case *claude.ToolUseBlock:
 			out = append(out, wireContentBlock{Type: "tool_use", ID: v.ID, Name: v.Name, Input: v.Input})
 		case *claude.ToolResultBlock:

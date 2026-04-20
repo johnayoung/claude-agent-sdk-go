@@ -9,7 +9,7 @@ import (
 // NewTextMessage returns an AssistantMessage with a single TextBlock.
 func NewTextMessage(text string) *claude.AssistantMessage {
 	return &claude.AssistantMessage{
-		Role: "assistant",
+		Model: "claude-sonnet-4-6-20250929",
 		Content: []claude.ContentBlock{
 			&claude.TextBlock{Type: "text", Text: text},
 		},
@@ -20,7 +20,7 @@ func NewTextMessage(text string) *claude.AssistantMessage {
 func NewToolUseMessage(id, name string, input any) *claude.AssistantMessage {
 	raw, _ := json.Marshal(input)
 	return &claude.AssistantMessage{
-		Role: "assistant",
+		Model: "claude-sonnet-4-6-20250929",
 		Content: []claude.ContentBlock{
 			&claude.ToolUseBlock{Type: "tool_use", ID: id, Name: name, Input: raw},
 		},
