@@ -159,7 +159,7 @@ func marshalMessage(msg claude.Message) ([]byte, error) {
 			Type:            "assistant",
 			Message:         wireInnerMessage{Content: blocksToWire(v.Content), Model: v.Model},
 			ParentToolUseID: v.ParentToolUseID,
-			Error:           v.Error,
+			Error:           string(v.Error),
 			SessionID:       v.SessionID,
 			UUID:            v.UUID,
 		}
@@ -184,7 +184,7 @@ func marshalMessage(msg claude.Message) ([]byte, error) {
 	case *claude.TaskNotificationMessage:
 		return json.Marshal(wireTaskNotification{
 			Type: "system", Subtype: "task_notification",
-			TaskID: v.TaskID, Status: v.Status,
+			TaskID: v.TaskID, Status: string(v.Status),
 			OutputFile: v.OutputFile, Summary: v.Summary,
 			UUID: v.UUID, SessionID: v.SessionID,
 		})

@@ -115,7 +115,7 @@ func dispatchHooks(ctx context.Context, o *Options, msg Message) {
 		})
 	case *TaskNotificationMessage:
 		o.Hooks.DispatchNotificationArrived(ctx, &hooks.NotificationArrivedInput{
-			Title:   m.Status,
+			Title:   string(m.Status),
 			Message: m.Summary,
 		})
 	case *TaskStartedMessage:

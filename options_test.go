@@ -61,7 +61,7 @@ func TestWithPermissionMode(t *testing.T) {
 
 func TestWithCanUseTool(t *testing.T) {
 	called := false
-	fn := func(toolName string, input map[string]any) (permission.Decision, error) {
+	fn := func(toolName string, input map[string]any, ctx permission.ToolContext) (permission.Decision, error) {
 		called = true
 		return permission.Allow("allowed"), nil
 	}
@@ -69,7 +69,7 @@ func TestWithCanUseTool(t *testing.T) {
 	if o.CanUseTool == nil {
 		t.Fatal("expected CanUseTool to be set")
 	}
-	d, err := o.CanUseTool("bash", nil)
+	d, err := o.CanUseTool("bash", nil, permission.ToolContext{})
 	if err != nil {
 		t.Fatal(err)
 	}

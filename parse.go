@@ -76,7 +76,9 @@ func parseAssistantMessage(data map[string]any) (Message, error) {
 	msg := &AssistantMessage{}
 
 	msg.ParentToolUseID, _ = data["parent_tool_use_id"].(string)
-	msg.Error, _ = data["error"].(string)
+	if errStr, ok := data["error"].(string); ok {
+		msg.Error = AssistantMessageError(errStr)
+	}
 	msg.SessionID, _ = data["session_id"].(string)
 	msg.UUID, _ = data["uuid"].(string)
 
@@ -140,21 +142,24 @@ func parseSystemMessage(data map[string]any, line []byte) (Message, error) {
 		m.ToolUseID, _ = data["tool_use_id"].(string)
 		m.LastToolName, _ = data["last_tool_name"].(string)
 		if usage, ok := data["usage"].(map[string]any); ok {
-			m.Usage = usage
+			m.Usage = parseTaskUsage(usage)
 		}
 		return m, nil
 
 	case "task_notification":
 		m := &TaskNotificationMessage{SystemMessage: base}
 		m.TaskID, _ = data["task_id"].(string)
-		m.Status, _ = data["status"].(string)
+		if s, ok := data["status"].(string); ok {
+			m.Status = TaskNotificationStatus(s)
+		}
 		m.OutputFile, _ = data["output_file"].(string)
 		m.Summary, _ = data["summary"].(string)
 		m.UUID, _ = data["uuid"].(string)
 		m.SessionID, _ = data["session_id"].(string)
 		m.ToolUseID, _ = data["tool_use_id"].(string)
 		if usage, ok := data["usage"].(map[string]any); ok {
-			m.Usage = usage
+			tu := parseTaskUsage(usage)
+			m.Usage = &tu
 		}
 		return m, nil
 
@@ -225,6 +230,20 @@ func parseStreamEvent(line []byte) (Message, error) {
 		return nil, &MessageParseError{TypeField: "stream_event", RawJSON: string(line), Err: err}
 	}
 	return &m, nil
+}
+
+func parseTaskUsage(m map[string]any) TaskUsage {
+	var u TaskUsage
+	if v, ok := m["total_tokens"].(float64); ok {
+		u.TotalTokens = int(v)
+	}
+	if v, ok := m["tool_uses"].(float64); ok {
+		u.ToolUses = int(v)
+	}
+	if v, ok := m["duration_ms"].(float64); ok {
+		u.DurationMS = int64(v)
+	}
+	return u
 }
 
 func parseContentBlocksFromSlice(raw []any) ([]ContentBlock, error) {

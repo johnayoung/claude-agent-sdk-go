@@ -29,6 +29,12 @@ const (
 // CanUseToolFunc aliases permission.CanUseToolFunc for convenience.
 type CanUseToolFunc = permission.CanUseToolFunc
 
+// PermissionUpdate aliases permission.Update for convenience.
+type PermissionUpdate = permission.Update
+
+// ToolPermissionContext aliases permission.ToolContext for convenience.
+type ToolPermissionContext = permission.ToolContext
+
 // Transporter is the communication layer interface. The default implementation
 // uses subprocess communication with the Claude CLI.
 type Transporter interface {
@@ -68,8 +74,10 @@ type Options struct {
 	MaxBudgetUSD         float64
 	Effort               string // "low", "medium", "high", "max"
 	Thinking             *ThinkingConfig
+	MaxThinkingTokens    int
 	SessionID            string
 	ContinueConversation bool
+	OutputFormat         map[string]any
 
 	// Tools
 	Tools           []string
@@ -80,8 +88,9 @@ type Options struct {
 	MCPServers []MCPServerConfig
 
 	// Permissions
-	PermissionMode PermissionMode
-	CanUseTool     CanUseToolFunc
+	PermissionMode         PermissionMode
+	PermissionPromptTool   string
+	CanUseTool             CanUseToolFunc
 
 	// Agents
 	Agents map[string]AgentDefinition
@@ -89,16 +98,30 @@ type Options struct {
 	// Hooks
 	Hooks *hooks.Hooks
 
+	// Session
+	ForkSession  bool
+	TaskBudget   *TaskBudget
+	SessionStore SessionStore
+
 	// Environment
 	CLIPath            string
 	Transport          Transporter
 	WorkingDir         string
+	AddDirs            []string
+	Settings           string
+	Env                map[string]string
+	ExtraArgs          map[string]*string
+	User               string
 	Sandbox            *SandboxConfig
 	FileCheckpointing  bool
 	Betas              []string
 	Skills             []string
 	SettingSources     []string
 	IncludePartialMsgs bool
+	MaxBufferSize      int
+	Stderr             func(string)
+	Plugins            []SdkPluginConfig
+	LoadTimeoutMS      int
 }
 
 // Option is a functional option that configures Options.
@@ -232,6 +255,82 @@ func WithSettingSources(sources ...string) Option {
 // WithIncludePartialMessages enables streaming partial content blocks.
 func WithIncludePartialMessages() Option {
 	return func(o *Options) { o.IncludePartialMsgs = true }
+}
+
+// WithUser sets the user identifier for the session.
+func WithUser(user string) Option {
+	return func(o *Options) { o.User = user }
+}
+
+// WithEnv sets additional environment variables for the CLI subprocess.
+func WithEnv(env map[string]string) Option {
+	return func(o *Options) { o.Env = env }
+}
+
+// WithExtraArgs passes additional CLI arguments not covered by other options.
+// Keys map to flag names; nil values produce flags with no argument.
+func WithExtraArgs(args map[string]*string) Option {
+	return func(o *Options) { o.ExtraArgs = args }
+}
+
+// WithOutputFormat sets a JSON schema for structured output validation.
+func WithOutputFormat(schema map[string]any) Option {
+	return func(o *Options) { o.OutputFormat = schema }
+}
+
+// WithTaskBudget constrains overall resource usage for the query.
+func WithTaskBudget(budget TaskBudget) Option {
+	return func(o *Options) { o.TaskBudget = &budget }
+}
+
+// WithAddDirs adds additional directories the CLI may access.
+func WithAddDirs(dirs ...string) Option {
+	return func(o *Options) { o.AddDirs = dirs }
+}
+
+// WithSettings sets the path to a settings file.
+func WithSettings(path string) Option {
+	return func(o *Options) { o.Settings = path }
+}
+
+// WithMaxThinkingTokens sets the maximum token budget for extended thinking.
+func WithMaxThinkingTokens(n int) Option {
+	return func(o *Options) { o.MaxThinkingTokens = n }
+}
+
+// WithPermissionPromptToolName overrides the tool name shown in permission prompts.
+func WithPermissionPromptToolName(name string) Option {
+	return func(o *Options) { o.PermissionPromptTool = name }
+}
+
+// WithForkSession creates a forked copy of an existing session.
+func WithForkSession() Option {
+	return func(o *Options) { o.ForkSession = true }
+}
+
+// WithMaxBufferSize sets the maximum internal buffer size in bytes.
+func WithMaxBufferSize(size int) Option {
+	return func(o *Options) { o.MaxBufferSize = size }
+}
+
+// WithStderr registers a callback for CLI stderr output.
+func WithStderr(fn func(string)) Option {
+	return func(o *Options) { o.Stderr = fn }
+}
+
+// WithPlugins registers local SDK plugin configurations.
+func WithPlugins(plugins ...SdkPluginConfig) Option {
+	return func(o *Options) { o.Plugins = plugins }
+}
+
+// WithLoadTimeout sets the maximum time in milliseconds to wait for CLI startup.
+func WithLoadTimeout(ms int) Option {
+	return func(o *Options) { o.LoadTimeoutMS = ms }
+}
+
+// WithSessionStore sets a custom session persistence backend.
+func WithSessionStore(store SessionStore) Option {
+	return func(o *Options) { o.SessionStore = store }
 }
 
 // NewOptions builds an Options by applying the given options over defaults.

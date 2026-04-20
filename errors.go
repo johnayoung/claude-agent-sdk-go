@@ -11,6 +11,17 @@ func (e *CLINotFoundError) Error() string {
 	return fmt.Sprintf("claude CLI not found in PATH: %s", e.SearchPath)
 }
 
+// CLIConnectionError indicates a failure to establish communication with the CLI process.
+type CLIConnectionError struct {
+	Err error
+}
+
+func (e *CLIConnectionError) Error() string {
+	return fmt.Sprintf("claude CLI connection failed: %v", e.Err)
+}
+
+func (e *CLIConnectionError) Unwrap() error { return e.Err }
+
 // ProcessError indicates the Claude CLI process exited with an error.
 type ProcessError struct {
 	ExitCode int

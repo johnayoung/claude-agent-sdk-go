@@ -18,15 +18,15 @@ type UserMessage struct {
 func (m *UserMessage) MessageType() string { return "user" }
 
 type AssistantMessage struct {
-	Content         []ContentBlock         `json:"content"`
-	Model           string                 `json:"model"`
-	ParentToolUseID string                 `json:"parent_tool_use_id,omitempty"`
-	Error           string                 `json:"error,omitempty"`
-	Usage           map[string]any `json:"usage,omitempty"`
-	MessageID       string                 `json:"message_id,omitempty"`
-	StopReason      string                 `json:"stop_reason,omitempty"`
-	SessionID       string                 `json:"session_id,omitempty"`
-	UUID            string                 `json:"uuid,omitempty"`
+	Content         []ContentBlock        `json:"content"`
+	Model           string                `json:"model"`
+	ParentToolUseID string                `json:"parent_tool_use_id,omitempty"`
+	Error           AssistantMessageError `json:"error,omitempty"`
+	Usage           map[string]any        `json:"usage,omitempty"`
+	MessageID       string                `json:"message_id,omitempty"`
+	StopReason      string                `json:"stop_reason,omitempty"`
+	SessionID       string                `json:"session_id,omitempty"`
+	UUID            string                `json:"uuid,omitempty"`
 }
 
 func (m *AssistantMessage) MessageType() string { return "assistant" }
@@ -52,13 +52,13 @@ func (m *TaskStartedMessage) MessageType() string { return "system" }
 
 type TaskProgressMessage struct {
 	SystemMessage
-	TaskID       string                 `json:"task_id"`
-	Description  string                 `json:"description"`
-	Usage        map[string]any `json:"usage"`
-	UUID         string                 `json:"uuid"`
-	SessionID    string                 `json:"session_id"`
-	ToolUseID    string                 `json:"tool_use_id,omitempty"`
-	LastToolName string                 `json:"last_tool_name,omitempty"`
+	TaskID       string     `json:"task_id"`
+	Description  string     `json:"description"`
+	Usage        TaskUsage  `json:"usage"`
+	UUID         string     `json:"uuid"`
+	SessionID    string     `json:"session_id"`
+	ToolUseID    string     `json:"tool_use_id,omitempty"`
+	LastToolName string     `json:"last_tool_name,omitempty"`
 }
 
 func (m *TaskProgressMessage) MessageType() string { return "system" }
@@ -66,13 +66,13 @@ func (m *TaskProgressMessage) MessageType() string { return "system" }
 type TaskNotificationMessage struct {
 	SystemMessage
 	TaskID     string                 `json:"task_id"`
-	Status     string                 `json:"status"`
+	Status     TaskNotificationStatus `json:"status"`
 	OutputFile string                 `json:"output_file"`
 	Summary    string                 `json:"summary"`
 	UUID       string                 `json:"uuid"`
 	SessionID  string                 `json:"session_id"`
 	ToolUseID  string                 `json:"tool_use_id,omitempty"`
-	Usage      map[string]any `json:"usage,omitempty"`
+	Usage      *TaskUsage             `json:"usage,omitempty"`
 }
 
 func (m *TaskNotificationMessage) MessageType() string { return "system" }

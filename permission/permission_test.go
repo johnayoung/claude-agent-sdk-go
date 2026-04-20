@@ -39,14 +39,14 @@ func TestPermissionModes(t *testing.T) {
 }
 
 func TestCanUseToolFunc(t *testing.T) {
-	var fn CanUseToolFunc = func(toolName string, input map[string]any) (Decision, error) {
+	var fn CanUseToolFunc = func(toolName string, input map[string]any, ctx ToolContext) (Decision, error) {
 		if toolName == "bash" {
 			return Deny("bash not allowed"), nil
 		}
 		return Allow(""), nil
 	}
 
-	d, err := fn("bash", nil)
+	d, err := fn("bash", nil, ToolContext{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,11 +54,36 @@ func TestCanUseToolFunc(t *testing.T) {
 		t.Error("expected bash to be denied")
 	}
 
-	d, err = fn("read", nil)
+	d, err = fn("read", nil, ToolContext{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !d.Allowed() {
 		t.Error("expected read to be allowed")
+	}
+}
+
+func TestDenyWithInterrupt(t *testing.T) {
+	d := DenyWithInterrupt("emergency stop")
+	if d.Allowed() {
+		t.Error("expected denial")
+	}
+	if !d.Interrupt() {
+		t.Error("expected interrupt flag")
+	}
+}
+
+func TestAllowWithUpdates(t *testing.T) {
+	input := map[string]any{"key": "val"}
+	perms := []Update{{Type: "addRules", Behavior: BehaviorAllow}}
+	d := AllowWithUpdates("ok", input, perms)
+	if !d.Allowed() {
+		t.Error("expected allow")
+	}
+	if d.UpdatedInput() == nil {
+		t.Error("expected updated input")
+	}
+	if len(d.UpdatedPermissions()) != 1 {
+		t.Error("expected one permission update")
 	}
 }
