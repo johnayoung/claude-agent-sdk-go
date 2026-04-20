@@ -10,9 +10,9 @@ import (
 
 // SessionKey identifies a session in a SessionStore.
 type SessionKey struct {
-	ProjectKey string
-	SessionID  string
-	Subpath    string
+	ProjectKey string `json:"project_key"`
+	SessionID  string `json:"session_id"`
+	Subpath    string `json:"subpath,omitempty"`
 }
 
 // SessionStoreEntry represents a single entry persisted in a session store.

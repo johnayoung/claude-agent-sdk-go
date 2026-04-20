@@ -87,8 +87,8 @@ type wireContentBlock struct {
 	Name      string          `json:"name,omitempty"`
 	Input     json.RawMessage `json:"input,omitempty"`
 	ToolUseID string          `json:"tool_use_id,omitempty"`
-	Content   string          `json:"content,omitempty"`
-	IsError   bool            `json:"is_error,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
+	IsError   *bool           `json:"is_error,omitempty"`
 }
 
 type wireInnerMessage struct {
@@ -121,15 +121,15 @@ type wireSystem struct {
 }
 
 type wireResult struct {
-	Type         string  `json:"type"`
-	Subtype      string  `json:"subtype"`
-	Result       string  `json:"result,omitempty"`
-	TotalCostUSD float64 `json:"total_cost_usd,omitempty"`
-	DurationMS   int64   `json:"duration_ms"`
-	DurationAPIM int64   `json:"duration_api_ms"`
-	IsError      bool    `json:"is_error"`
-	SessionID    string  `json:"session_id"`
-	NumTurns     int     `json:"num_turns"`
+	Type         string   `json:"type"`
+	Subtype      string   `json:"subtype"`
+	Result       string   `json:"result,omitempty"`
+	TotalCostUSD *float64 `json:"total_cost_usd,omitempty"`
+	DurationMS   int64    `json:"duration_ms"`
+	DurationAPIM int64    `json:"duration_api_ms"`
+	IsError      bool     `json:"is_error"`
+	SessionID    string   `json:"session_id"`
+	NumTurns     int      `json:"num_turns"`
 }
 
 type wireTaskStarted struct {
@@ -200,6 +200,7 @@ func marshalMessage(msg claude.Message) ([]byte, error) {
 			SessionID:    v.SessionID,
 			NumTurns:     v.NumTurns,
 		})
+
 	default:
 		return nil, fmt.Errorf("unsupported message type %T", msg)
 	}
@@ -222,6 +223,7 @@ func blocksToWire(blocks []claude.ContentBlock) []wireContentBlock {
 				Content:   v.Content,
 				IsError:   v.IsError,
 			})
+
 		}
 	}
 	return out

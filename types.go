@@ -62,12 +62,12 @@ const (
 // RateLimitInfo contains rate limit status emitted by the CLI.
 type RateLimitInfo struct {
 	Status                RateLimitStatus `json:"status"`
-	ResetsAt              *int64          `json:"resetsAt,omitempty"`
-	RateLimitType         RateLimitType   `json:"rateLimitType,omitempty"`
+	ResetsAt              *int64          `json:"resets_at,omitempty"`
+	RateLimitType         RateLimitType   `json:"rate_limit_type,omitempty"`
 	Utilization           *float64        `json:"utilization,omitempty"`
-	OverageStatus         RateLimitStatus `json:"overageStatus,omitempty"`
-	OverageResetsAt       *int64          `json:"overageResetsAt,omitempty"`
-	OverageDisabledReason string          `json:"overageDisabledReason,omitempty"`
+	OverageStatus         RateLimitStatus `json:"overage_status,omitempty"`
+	OverageResetsAt       *int64          `json:"overage_resets_at,omitempty"`
+	OverageDisabledReason string          `json:"overage_disabled_reason,omitempty"`
 	Raw                   json.RawMessage `json:"-"`
 }
 

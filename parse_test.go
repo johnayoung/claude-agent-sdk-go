@@ -151,8 +151,8 @@ func TestParseLine_ResultMessage(t *testing.T) {
 	if m.NumTurns != 3 {
 		t.Errorf("unexpected num_turns: %d", m.NumTurns)
 	}
-	if m.TotalCostUSD != 0.01 {
-		t.Errorf("unexpected total_cost_usd: %f", m.TotalCostUSD)
+	if m.TotalCostUSD == nil || *m.TotalCostUSD != 0.01 {
+		t.Errorf("unexpected total_cost_usd: %v", m.TotalCostUSD)
 	}
 	if m.DurationAPIMS != 500 {
 		t.Errorf("unexpected duration_api_ms: %d", m.DurationAPIMS)
@@ -160,7 +160,7 @@ func TestParseLine_ResultMessage(t *testing.T) {
 }
 
 func TestParseLine_ResultMessage_WithModelUsage(t *testing.T) {
-	line := []byte(`{"type":"result","subtype":"success","duration_ms":3000,"duration_api_ms":2000,"is_error":false,"num_turns":1,"session_id":"sid","modelUsage":{"claude-sonnet-4-5":{"inputTokens":3,"outputTokens":24}},"permission_denials":[],"uuid":"uuid-r","errors":["err1","err2"]}`)
+	line := []byte(`{"type":"result","subtype":"success","duration_ms":3000,"duration_api_ms":2000,"is_error":false,"num_turns":1,"session_id":"sid","model_usage":{"claude-sonnet-4-5":{"inputTokens":3,"outputTokens":24}},"permission_denials":[],"uuid":"uuid-r","errors":["err1","err2"]}`)
 	msg, err := parseLine(line)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -245,7 +245,7 @@ func TestParseLine_TaskNotification(t *testing.T) {
 }
 
 func TestParseLine_RateLimitEvent(t *testing.T) {
-	line := []byte(`{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1700000000,"rateLimitType":"five_hour","utilization":0.85},"uuid":"uuid-rl","session_id":"sess-1"}`)
+	line := []byte(`{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resets_at":1700000000,"rate_limit_type":"five_hour","utilization":0.85},"uuid":"uuid-rl","session_id":"sess-1"}`)
 	msg, err := parseLine(line)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -275,7 +275,7 @@ func TestParseLine_RateLimitEvent(t *testing.T) {
 }
 
 func TestParseLine_RateLimitEvent_Rejected(t *testing.T) {
-	line := []byte(`{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1700003600,"rateLimitType":"seven_day","overageStatus":"rejected","overageDisabledReason":"out_of_credits"},"uuid":"uuid-rl2","session_id":"sess-1"}`)
+	line := []byte(`{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resets_at":1700003600,"rate_limit_type":"seven_day","overage_status":"rejected","overage_disabled_reason":"out_of_credits"},"uuid":"uuid-rl2","session_id":"sess-1"}`)
 	msg, err := parseLine(line)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

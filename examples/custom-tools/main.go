@@ -68,7 +68,11 @@ func main() {
 				}
 			}
 		case *claude.ResultMessage:
-			fmt.Printf("\ncost: $%.6f\n", m.TotalCostUSD)
+			var cost float64
+			if m.TotalCostUSD != nil {
+				cost = *m.TotalCostUSD
+			}
+			fmt.Printf("\ncost: $%.6f\n", cost)
 		}
 	}
 }

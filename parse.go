@@ -165,7 +165,13 @@ func parseSystemMessage(data map[string]any, line []byte) (Message, error) {
 
 	case "mirror_error":
 		m := &MirrorErrorMessage{SystemMessage: base}
-		m.Key, _ = data["key"].(string)
+		if keyMap, ok := data["key"].(map[string]any); ok {
+			sk := &SessionKey{}
+			sk.ProjectKey, _ = keyMap["project_key"].(string)
+			sk.SessionID, _ = keyMap["session_id"].(string)
+			sk.Subpath, _ = keyMap["subpath"].(string)
+			m.Key = sk
+		}
 		m.Error, _ = data["error"].(string)
 		return m, nil
 
@@ -195,7 +201,7 @@ func parseResultMessage(line []byte) (Message, error) {
 	m.SessionID, _ = raw["session_id"].(string)
 	m.StopReason, _ = raw["stop_reason"].(string)
 	if v, ok := raw["total_cost_usd"].(float64); ok {
-		m.TotalCostUSD = v
+		m.TotalCostUSD = &v
 	}
 	if v, ok := raw["usage"].(map[string]any); ok {
 		m.Usage = v
@@ -205,7 +211,7 @@ func parseResultMessage(line []byte) (Message, error) {
 		b, _ := json.Marshal(v)
 		m.StructuredOutput = b
 	}
-	if v, ok := raw["modelUsage"].(map[string]any); ok {
+	if v, ok := raw["model_usage"].(map[string]any); ok {
 		m.ModelUsage = v
 	}
 	if v, ok := raw["permission_denials"].([]any); ok {
@@ -272,8 +278,14 @@ func parseContentBlocksFromSlice(raw []any) ([]ContentBlock, error) {
 			blocks = append(blocks, &ToolUseBlock{Type: "tool_use", ID: id, Name: name, Input: input})
 		case "tool_result":
 			toolUseID, _ := blockMap["tool_use_id"].(string)
-			content, _ := blockMap["content"].(string)
-			isError, _ := blockMap["is_error"].(bool)
+			var content json.RawMessage
+			if c, ok := blockMap["content"]; ok && c != nil {
+				content, _ = json.Marshal(c)
+			}
+			var isError *bool
+			if ie, ok := blockMap["is_error"].(bool); ok {
+				isError = &ie
+			}
 			blocks = append(blocks, &ToolResultBlock{Type: "tool_result", ToolUseID: toolUseID, Content: content, IsError: isError})
 		}
 	}

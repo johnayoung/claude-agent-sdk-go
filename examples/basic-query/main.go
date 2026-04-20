@@ -30,8 +30,12 @@ func main() {
 				}
 			}
 		case *claude.ResultMessage:
+			var cost float64
+			if m.TotalCostUSD != nil {
+				cost = *m.TotalCostUSD
+			}
 			fmt.Printf("\nsession: %s  turns: %d  cost: $%.6f\n",
-				m.SessionID, m.NumTurns, m.TotalCostUSD)
+				m.SessionID, m.NumTurns, cost)
 		}
 	}
 }

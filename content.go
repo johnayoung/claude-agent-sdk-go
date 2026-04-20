@@ -17,7 +17,7 @@ func (b *TextBlock) BlockType() string { return "text" }
 type ThinkingBlock struct {
 	Type      string `json:"type"`
 	Thinking  string `json:"thinking"`
-	Signature string `json:"signature,omitempty"`
+	Signature string `json:"signature"`
 }
 
 func (b *ThinkingBlock) BlockType() string { return "thinking" }
@@ -32,10 +32,10 @@ type ToolUseBlock struct {
 func (b *ToolUseBlock) BlockType() string { return "tool_use" }
 
 type ToolResultBlock struct {
-	Type      string `json:"type"`
-	ToolUseID string `json:"tool_use_id"`
-	Content   string `json:"content"`
-	IsError   bool   `json:"is_error"`
+	Type      string          `json:"type"`
+	ToolUseID string          `json:"tool_use_id"`
+	Content   json.RawMessage `json:"content,omitempty"`
+	IsError   *bool           `json:"is_error,omitempty"`
 }
 
 func (b *ToolResultBlock) BlockType() string { return "tool_result" }

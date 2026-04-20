@@ -109,10 +109,18 @@ func dispatchHooks(ctx context.Context, o *Options, msg Message) {
 					ToolInput: input,
 				})
 			case *ToolResultBlock:
+				var toolOutput string
+				if b.Content != nil {
+					toolOutput = string(b.Content)
+				}
+				var isError bool
+				if b.IsError != nil {
+					isError = *b.IsError
+				}
 				o.Hooks.DispatchPostToolUse(ctx, &hooks.PostToolUseInput{
 					ToolName:   "",
-					ToolOutput: b.Content,
-					IsError:    b.IsError,
+					ToolOutput: toolOutput,
+					IsError:    isError,
 				})
 			}
 		}

@@ -79,28 +79,28 @@ func (m *TaskNotificationMessage) MessageType() string { return "system" }
 
 type MirrorErrorMessage struct {
 	SystemMessage
-	Key   string `json:"key,omitempty"`
-	Error string `json:"error,omitempty"`
+	Key   *SessionKey `json:"key,omitempty"`
+	Error string      `json:"error,omitempty"`
 }
 
 func (m *MirrorErrorMessage) MessageType() string { return "system" }
 
 type ResultMessage struct {
-	Subtype           string                 `json:"subtype"`
-	DurationMS        int64                  `json:"duration_ms"`
-	DurationAPIMS     int64                  `json:"duration_api_ms"`
-	IsError           bool                   `json:"is_error"`
-	NumTurns          int                    `json:"num_turns"`
-	SessionID         string                 `json:"session_id"`
-	StopReason        string                 `json:"stop_reason,omitempty"`
-	TotalCostUSD      float64                `json:"total_cost_usd,omitempty"`
-	Usage             map[string]any `json:"usage,omitempty"`
-	Result            string                 `json:"result,omitempty"`
-	StructuredOutput  json.RawMessage        `json:"structured_output,omitempty"`
-	ModelUsage        map[string]any `json:"model_usage,omitempty"`
-	PermissionDenials []any          `json:"permission_denials,omitempty"`
-	Errors            []string               `json:"errors,omitempty"`
-	UUID              string                 `json:"uuid,omitempty"`
+	Subtype           string          `json:"subtype"`
+	DurationMS        int64           `json:"duration_ms"`
+	DurationAPIMS     int64           `json:"duration_api_ms"`
+	IsError           bool            `json:"is_error"`
+	NumTurns          int             `json:"num_turns"`
+	SessionID         string          `json:"session_id"`
+	StopReason        string          `json:"stop_reason,omitempty"`
+	TotalCostUSD      *float64        `json:"total_cost_usd,omitempty"`
+	Usage             map[string]any  `json:"usage,omitempty"`
+	Result            string          `json:"result,omitempty"`
+	StructuredOutput  json.RawMessage `json:"structured_output,omitempty"`
+	ModelUsage        map[string]any  `json:"model_usage,omitempty"`
+	PermissionDenials []any           `json:"permission_denials,omitempty"`
+	Errors            []string        `json:"errors,omitempty"`
+	UUID              string          `json:"uuid,omitempty"`
 }
 
 func (m *ResultMessage) MessageType() string { return "result" }
