@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"testing"
+
+	"github.com/johnayoung/claude-agent-sdk-go/hooks"
 )
 
 // stubTransport satisfies the Transporter interface for testing.
@@ -73,7 +75,7 @@ func TestWithCanUseTool(t *testing.T) {
 }
 
 func TestWithHooks(t *testing.T) {
-	h := struct{ Name string }{"test"}
+	h := hooks.New()
 	o := NewOptions([]Option{WithHooks(h)})
 	if o.Hooks == nil {
 		t.Error("expected Hooks to be set")

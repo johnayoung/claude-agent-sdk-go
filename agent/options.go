@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"os/exec"
+
+	"github.com/johnayoung/claude-agent-sdk-go/hooks"
 )
 
 // PermissionMode controls how the agent handles tool permission requests.
@@ -56,7 +58,7 @@ type Options struct {
 	Transport      Transporter
 	PermissionMode PermissionMode
 	CanUseTool     CanUseToolFunc
-	Hooks          any // typed once hooks/ package is introduced (CASG-0007)
+	Hooks          *hooks.Hooks
 	MCPServers     []MCPServerConfig
 	WorkingDir     string
 }
@@ -95,7 +97,7 @@ func WithCanUseTool(fn CanUseToolFunc) Option {
 }
 
 // WithHooks attaches a hook registry to receive agent lifecycle events.
-func WithHooks(h any) Option {
+func WithHooks(h *hooks.Hooks) Option {
 	return func(o *Options) { o.Hooks = h }
 }
 
