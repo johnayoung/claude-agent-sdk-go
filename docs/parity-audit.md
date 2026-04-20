@@ -227,15 +227,60 @@ Tests (`transcript_mirror_test.go`):
 
 ## Phase 7: End-to-End Integration Tests [TODO]
 
-**Goal:** Verify complete flows work against the real CLI binary.
+**Goal:** Verify complete flows work against the real CLI binary, matching Python SDK e2e coverage.
 
-**Steps:**
-1. Multi-turn conversation via `Client` with session resume
-2. Permission deny/allow flow with tool re-invocation
-3. Hook callback chain (pre_tool_use modifies input, post_tool_use observes output)
-4. Interrupt mid-stream and verify clean shutdown
-5. Session store round-trip: persist during query, read back via `GetSessionMessages`
-6. Structured output with JSON schema validation
+**Reference:** https://github.com/anthropics/claude-agent-sdk-python/tree/main/e2e-tests
+
+**Placement:** Idiomatic Go — tests live in `e2e_test.go` (or split per-domain) in the root package, gated by `//go:build e2e`. Run via `go test -tags=e2e -count=1 ./...`. Requires `ANTHROPIC_API_KEY` env var.
+
+**Test domains (from Python SDK e2e-tests):**
+
+1. **Agents & Settings** (`test_agents_and_settings.py`)
+   - Agent definitions appear in init (streaming + query)
+   - Large agents (~260KB) register successfully
+   - Filesystem agent loading from `.claude/agents/*.md`
+   - `SettingSources` filtering (user-only, project-included)
+
+2. **Dynamic Control** (`test_dynamic_control.py`)
+   - `Client.SetPermissionMode()` mid-session
+   - `Client.SetModel()` mid-session
+   - `Client.Interrupt()` during response
+
+3. **Hook Events** (`test_hook_events.py`)
+   - PreToolUse receives `tool_use_id`, returns `additionalContext` + allow
+   - PostToolUse receives `tool_use_id`
+   - Notification hook shape
+   - Multiple hooks registered simultaneously
+
+4. **Hooks Control** (`test_hooks.py`)
+   - PreToolUse denies with reason
+   - PostToolUse stops execution with `stopReason`
+   - PostToolUse returns `additionalContext`
+
+5. **Partial Messages** (`test_include_partial_messages.py`)
+   - `WithIncludePartialMessages()` yields stream events (deltas, starts, stops)
+   - Thinking deltas arrive incrementally
+   - Disabled by default (no stream events)
+
+6. **SDK MCP Tools** (`test_sdk_mcp_tools.py`)
+   - SDK-defined MCP tool executes handler
+   - `DisallowedTools` blocks, `AllowedTools` permits
+   - Multiple tools callable in one session
+   - Without explicit allow, tools are blocked
+
+7. **Stderr Callback** (`test_stderr_callback.py`)
+   - `WithStderr` captures debug output with `ExtraArgs{"--debug-to-stderr": nil}`
+   - Without debug mode, no stderr output
+
+8. **Structured Output** (`test_structured_output.py`)
+   - `WithOutputFormat` produces `ResultMessage.StructuredOutput`
+   - Nested objects/arrays, enum constraints
+   - Works alongside tool use
+
+9. **Tool Permissions** (`test_tool_permissions.py`)
+   - `WithCanUseTool` callback invoked for non-read-only tools
+   - Allow/deny decisions respected
 
 **Key files:**
-- New `integration_test.go` (build-tagged `//go:build integration`)
+- `e2e_test.go` (build tag `//go:build e2e`)
+- Helper `e2e_helpers_test.go` for shared setup (API key, skip logic, client factory)
