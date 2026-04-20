@@ -29,12 +29,22 @@ type McpServerStatus struct {
 
 // AgentDefinition describes a sub-agent configuration.
 type AgentDefinition struct {
-	Name         string            `json:"name"`
-	Description  string            `json:"description"`
-	Model        string            `json:"model,omitempty"`
-	Instructions string            `json:"instructions,omitempty"`
-	Tools        []string          `json:"tools,omitempty"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
+	Name            string            `json:"name"`
+	Description     string            `json:"description"`
+	Prompt          string            `json:"prompt,omitempty"`
+	Model           string            `json:"model,omitempty"`
+	Instructions    string            `json:"instructions,omitempty"`
+	Tools           []string          `json:"tools,omitempty"`
+	DisallowedTools []string          `json:"disallowed_tools,omitempty"`
+	Skills          []string          `json:"skills,omitempty"`
+	Memory          string            `json:"memory,omitempty"`
+	MCPServers      []string          `json:"mcp_servers,omitempty"`
+	InitialPrompt   string            `json:"initial_prompt,omitempty"`
+	MaxTurns        int               `json:"max_turns,omitempty"`
+	Background      bool              `json:"background,omitempty"`
+	Effort          string            `json:"effort,omitempty"`
+	PermissionMode  string            `json:"permission_mode,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
 }
 
 // SandboxConfig describes sandbox execution settings.

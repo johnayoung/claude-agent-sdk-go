@@ -74,7 +74,11 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 			tr = c.opts.Transport
 		} else {
 			args := buildClientArgs(prompt, c.opts, sessionID)
-			tr = transport.New(args, transport.WithCLIPath(c.opts.CLIPath))
+			trOpts := []transport.Option{transport.WithCLIPath(c.opts.CLIPath)}
+			if c.opts.WorkingDir != "" {
+				trOpts = append(trOpts, transport.WithWorkingDir(c.opts.WorkingDir))
+			}
+			tr = transport.New(args, trOpts...)
 		}
 
 		if err := tr.Start(qCtx); err != nil {
@@ -104,6 +108,8 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 				continue
 			}
 
+			dispatchHooks(qCtx, c.opts, msg)
+
 			if result, ok := msg.(*ResultMessage); ok {
 				if result.SessionID != "" {
 					c.mu.Lock()
@@ -123,6 +129,36 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 	}
 }
 
+// Interrupt cancels any in-flight query but keeps the client usable for subsequent queries.
+func (c *Client) Interrupt() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cancelFn != nil {
+		c.cancelFn()
+	}
+}
+
+// SetPermissionMode dynamically changes the permission mode for subsequent queries.
+func (c *Client) SetPermissionMode(mode PermissionMode) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.opts.PermissionMode = mode
+}
+
+// SetModel dynamically changes the model for subsequent queries.
+func (c *Client) SetModel(model string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.opts.Model = model
+}
+
+// SessionID returns the current session ID, if one has been established.
+func (c *Client) SessionID() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.sessionID
+}
+
 // Close terminates the Client and interrupts any in-flight Query.
 func (c *Client) Close() error {
 	c.mu.Lock()
@@ -135,9 +171,10 @@ func (c *Client) Close() error {
 }
 
 func buildClientArgs(prompt string, o *Options, sessionID string) []string {
-	args := buildQueryArgs(prompt, o)
+	// Client's tracked sessionID overrides the option-level SessionID for resume
+	effective := *o
 	if sessionID != "" {
-		args = append(args, "--resume", sessionID)
+		effective.SessionID = sessionID
 	}
-	return args
+	return buildQueryArgs(prompt, &effective)
 }

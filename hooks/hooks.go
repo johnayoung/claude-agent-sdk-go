@@ -11,6 +11,7 @@ type HookEvent string
 const (
 	EventPreToolUse          HookEvent = "pre_tool_use"
 	EventPostToolUse         HookEvent = "post_tool_use"
+	EventPostToolUseFailure  HookEvent = "post_tool_use_failure"
 	EventModelResponse       HookEvent = "model_response"
 	EventNotificationArrived HookEvent = "notification_arrived"
 	EventStop                HookEvent = "stop"
@@ -18,6 +19,9 @@ const (
 	EventSubagentStopped     HookEvent = "subagent_stopped"
 	EventSessionStarted      HookEvent = "session_started"
 	EventSessionStopped      HookEvent = "session_stopped"
+	EventUserPromptSubmit    HookEvent = "user_prompt_submit"
+	EventPermissionRequest   HookEvent = "permission_request"
+	EventPreCompact          HookEvent = "pre_compact"
 	EventError               HookEvent = "error"
 )
 
@@ -46,7 +50,23 @@ type PostToolUseInput struct {
 }
 
 // PostToolUseOutput is returned after a PostToolUse handler runs.
-type PostToolUseOutput struct{}
+type PostToolUseOutput struct {
+	SuppressOutput bool
+}
+
+// PostToolUseFailureInput carries context for a tool call that produced an error.
+type PostToolUseFailureInput struct {
+	ToolName   string
+	ToolInput  map[string]any
+	ToolOutput string
+	Error      string
+	SessionID  string
+}
+
+// PostToolUseFailureOutput is returned after a PostToolUseFailure handler runs.
+type PostToolUseFailureOutput struct {
+	SuppressOutput bool
+}
 
 // ModelResponseInput carries a text response from the model.
 type ModelResponseInput struct {
@@ -74,7 +94,48 @@ type StopInput struct {
 }
 
 // StopOutput is returned after a Stop handler runs.
-type StopOutput struct{}
+type StopOutput struct {
+	StopReason string
+}
+
+// UserPromptSubmitInput carries context when a user submits a prompt.
+type UserPromptSubmitInput struct {
+	Prompt    string
+	SessionID string
+}
+
+// UserPromptSubmitOutput allows modifying or blocking the user prompt.
+type UserPromptSubmitOutput struct {
+	Prompt        string
+	Block         bool
+	Reason        string
+	SystemMessage string
+}
+
+// PermissionRequestInput carries context for a permission request.
+type PermissionRequestInput struct {
+	ToolName  string
+	ToolInput map[string]any
+	SessionID string
+}
+
+// PermissionRequestOutput allows hooks to make permission decisions.
+type PermissionRequestOutput struct {
+	Decision string // "allow" or "deny"
+	Reason   string
+}
+
+// PreCompactInput carries context before message compaction.
+type PreCompactInput struct {
+	SessionID    string
+	MessageCount int
+}
+
+// PreCompactOutput allows controlling compaction behavior.
+type PreCompactOutput struct {
+	Block  bool
+	Reason string
+}
 
 // SubagentStartedInput carries context when a subagent starts.
 type SubagentStartedInput struct {
@@ -124,6 +185,7 @@ type ErrorOutput struct{}
 
 type PreToolUseHandler func(ctx context.Context, input *PreToolUseInput) (*PreToolUseOutput, error)
 type PostToolUseHandler func(ctx context.Context, input *PostToolUseInput) (*PostToolUseOutput, error)
+type PostToolUseFailureHandler func(ctx context.Context, input *PostToolUseFailureInput) (*PostToolUseFailureOutput, error)
 type ModelResponseHandler func(ctx context.Context, input *ModelResponseInput) (*ModelResponseOutput, error)
 type NotificationArrivedHandler func(ctx context.Context, input *NotificationArrivedInput) (*NotificationArrivedOutput, error)
 type StopHandler func(ctx context.Context, input *StopInput) (*StopOutput, error)
@@ -131,6 +193,9 @@ type SubagentStartedHandler func(ctx context.Context, input *SubagentStartedInpu
 type SubagentStoppedHandler func(ctx context.Context, input *SubagentStoppedInput) (*SubagentStoppedOutput, error)
 type SessionStartedHandler func(ctx context.Context, input *SessionStartedInput) (*SessionStartedOutput, error)
 type SessionStoppedHandler func(ctx context.Context, input *SessionStoppedInput) (*SessionStoppedOutput, error)
+type UserPromptSubmitHandler func(ctx context.Context, input *UserPromptSubmitInput) (*UserPromptSubmitOutput, error)
+type PermissionRequestHandler func(ctx context.Context, input *PermissionRequestInput) (*PermissionRequestOutput, error)
+type PreCompactHandler func(ctx context.Context, input *PreCompactInput) (*PreCompactOutput, error)
 type ErrorHandler func(ctx context.Context, input *ErrorInput) (*ErrorOutput, error)
 
 type preToolUseEntry struct {
@@ -143,10 +208,21 @@ type postToolUseEntry struct {
 	handler PostToolUseHandler
 }
 
+type postToolUseFailureEntry struct {
+	pattern string
+	handler PostToolUseFailureHandler
+}
+
+type permissionRequestEntry struct {
+	pattern string
+	handler PermissionRequestHandler
+}
+
 // Hooks is a registry for agent lifecycle event handlers.
 type Hooks struct {
 	preToolUse          []preToolUseEntry
 	postToolUse         []postToolUseEntry
+	postToolUseFailure  []postToolUseFailureEntry
 	modelResponse       []ModelResponseHandler
 	notificationArrived []NotificationArrivedHandler
 	stop                []StopHandler
@@ -154,6 +230,9 @@ type Hooks struct {
 	subagentStopped     []SubagentStoppedHandler
 	sessionStarted      []SessionStartedHandler
 	sessionStopped      []SessionStoppedHandler
+	userPromptSubmit    []UserPromptSubmitHandler
+	permissionRequest   []permissionRequestEntry
+	preCompact          []PreCompactHandler
 	errorHandlers       []ErrorHandler
 }
 
@@ -205,6 +284,26 @@ func (h *Hooks) OnSessionStarted(fn SessionStartedHandler) {
 // OnSessionStopped registers a handler called when a session stops.
 func (h *Hooks) OnSessionStopped(fn SessionStoppedHandler) {
 	h.sessionStopped = append(h.sessionStopped, fn)
+}
+
+// OnPostToolUseFailure registers a handler for failed tool calls whose name matches pattern.
+func (h *Hooks) OnPostToolUseFailure(pattern string, fn PostToolUseFailureHandler) {
+	h.postToolUseFailure = append(h.postToolUseFailure, postToolUseFailureEntry{pattern: pattern, handler: fn})
+}
+
+// OnUserPromptSubmit registers a handler called when a user prompt is submitted.
+func (h *Hooks) OnUserPromptSubmit(fn UserPromptSubmitHandler) {
+	h.userPromptSubmit = append(h.userPromptSubmit, fn)
+}
+
+// OnPermissionRequest registers a handler for permission requests whose tool name matches pattern.
+func (h *Hooks) OnPermissionRequest(pattern string, fn PermissionRequestHandler) {
+	h.permissionRequest = append(h.permissionRequest, permissionRequestEntry{pattern: pattern, handler: fn})
+}
+
+// OnPreCompact registers a handler called before message compaction.
+func (h *Hooks) OnPreCompact(fn PreCompactHandler) {
+	h.preCompact = append(h.preCompact, fn)
 }
 
 // OnError registers a handler called when an error occurs.
@@ -327,6 +426,76 @@ func (h *Hooks) DispatchSessionStopped(ctx context.Context, input *SessionStoppe
 		}
 	}
 	return &SessionStoppedOutput{}, nil
+}
+
+// DispatchPostToolUseFailure runs all matching PostToolUseFailure handlers in registration order.
+func (h *Hooks) DispatchPostToolUseFailure(ctx context.Context, input *PostToolUseFailureInput) (*PostToolUseFailureOutput, error) {
+	for _, entry := range h.postToolUseFailure {
+		matched, err := path.Match(entry.pattern, input.ToolName)
+		if err != nil || !matched {
+			continue
+		}
+		if _, err := entry.handler(ctx, input); err != nil {
+			return nil, err
+		}
+	}
+	return &PostToolUseFailureOutput{}, nil
+}
+
+// DispatchUserPromptSubmit runs all UserPromptSubmit handlers in registration order.
+func (h *Hooks) DispatchUserPromptSubmit(ctx context.Context, input *UserPromptSubmitInput) (*UserPromptSubmitOutput, error) {
+	merged := &UserPromptSubmitOutput{}
+	for _, fn := range h.userPromptSubmit {
+		out, err := fn(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		if out != nil {
+			if out.Block {
+				merged.Block = true
+				merged.Reason = out.Reason
+			}
+			if out.Prompt != "" {
+				merged.Prompt = out.Prompt
+			}
+			if out.SystemMessage != "" {
+				merged.SystemMessage = out.SystemMessage
+			}
+		}
+	}
+	return merged, nil
+}
+
+// DispatchPermissionRequest runs all matching PermissionRequest handlers in registration order.
+func (h *Hooks) DispatchPermissionRequest(ctx context.Context, input *PermissionRequestInput) (*PermissionRequestOutput, error) {
+	for _, entry := range h.permissionRequest {
+		matched, err := path.Match(entry.pattern, input.ToolName)
+		if err != nil || !matched {
+			continue
+		}
+		out, err := entry.handler(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		if out != nil && out.Decision != "" {
+			return out, nil
+		}
+	}
+	return &PermissionRequestOutput{}, nil
+}
+
+// DispatchPreCompact runs all PreCompact handlers in registration order.
+func (h *Hooks) DispatchPreCompact(ctx context.Context, input *PreCompactInput) (*PreCompactOutput, error) {
+	for _, fn := range h.preCompact {
+		out, err := fn(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		if out != nil && out.Block {
+			return out, nil
+		}
+	}
+	return &PreCompactOutput{}, nil
 }
 
 // DispatchError runs all Error handlers in registration order.

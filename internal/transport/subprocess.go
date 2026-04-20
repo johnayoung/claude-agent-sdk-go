@@ -24,10 +24,18 @@ func WithCLIPath(path string) Option {
 	}
 }
 
+// WithWorkingDir sets the working directory for the subprocess.
+func WithWorkingDir(dir string) Option {
+	return func(t *SubprocessTransport) {
+		t.workingDir = dir
+	}
+}
+
 // SubprocessTransport manages a Claude CLI subprocess via stdin/stdout JSON lines.
 type SubprocessTransport struct {
-	cliPath string
-	args    []string
+	cliPath    string
+	workingDir string
+	args       []string
 
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
@@ -57,6 +65,9 @@ func (t *SubprocessTransport) Start(ctx context.Context) error {
 	}
 
 	t.cmd = exec.CommandContext(ctx, cliPath, t.args...)
+	if t.workingDir != "" {
+		t.cmd.Dir = t.workingDir
+	}
 
 	stdin, err := t.cmd.StdinPipe()
 	if err != nil {

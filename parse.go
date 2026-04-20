@@ -59,6 +59,12 @@ func parseLine(line []byte) (Message, error) {
 			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
+	case "rate_limit":
+		var m RateLimitEvent
+		if err := json.Unmarshal(line, &m); err != nil {
+			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
+		}
+		return &m, nil
 	default:
 		return nil, &MessageParseError{
 			TypeField: env.Type,
