@@ -113,26 +113,24 @@ New options (`options.go`):
 
 ---
 
-## Phase 3: Message Type Field Parity
+## Phase 3: Message Type Field Parity [DONE]
 
 **Goal:** Every field on every message type matches the wire format exactly.
 
-**Steps:**
-1. Fetch `src/claude_agent_sdk/types.py`
-2. For each dataclass, compare fields against our Go struct:
-   - `UserMessage`
-   - `AssistantMessage`
-   - `SystemMessage` and subtypes (`TaskStartedMessage`, `TaskProgressMessage`, `TaskNotificationMessage`, `MirrorErrorMessage`)
-   - `ResultMessage`
-   - `StreamEvent`
-   - `RateLimitEvent` / `RateLimitInfo`
-   - Content blocks (`TextBlock`, `ThinkingBlock`, `ToolUseBlock`, `ToolResultBlock`)
-3. Verify JSON tags match camelCase/snake_case wire conventions
-4. Verify optional vs required semantics (pointer types in Go for nullable fields)
+**Changes made:**
 
-**Key files to compare:**
-- Python: `types.py`
-- Go: `message.go`, `types.go`, `content.go`
+All message types audited against Python SDK `types.py` and aligned:
+- `UserMessage` — `UUID`, `ParentToolUseID`, `ToolUseResult` fields
+- `AssistantMessage` — `SessionID`, `UUID`, `Model`, `MessageID`, `StopReason`, `Usage`, `Error`
+- `SystemMessage` subtypes — `TaskStartedMessage`, `TaskProgressMessage`, `TaskNotificationMessage`, `MirrorErrorMessage` with typed fields
+- `ResultMessage` — `StructuredOutput`, `ModelUsage`, `PermissionDenials`, `Errors`, `UUID`
+- `StreamEvent`, `RateLimitEvent` — full struct deserialization
+- Content blocks — `ThinkingBlock.Signature`, `ToolResultBlock.IsError` as `*bool`
+- JSON tags verified for camelCase/snake_case wire conventions
+- Optional fields use pointer types where Python uses `Optional`
+
+**Key files:**
+- `message.go`, `types.go`, `content.go`, `parse.go`
 
 ---
 
@@ -159,57 +157,75 @@ Control protocol (`control.go`, `control_handler.go`):
 
 ---
 
-## Phase 5: Session Store Persistence [TODO]
+## Phase 5: Transcript Mirroring & Session Persistence [DONE]
 
-**Goal:** Wire up `SessionStore` so messages are persisted as they stream in during a query.
+**Goal:** Intercept `transcript_mirror` messages from the CLI and persist entries to the configured `SessionStore`.
 
-**Context:** `SessionStore` interface, `InMemorySessionStore`, and `--session-mirror` CLI flag all exist but the query loop doesn't actually persist messages.
+**Changes made:**
 
-**Steps:**
-1. Fetch Python SDK's `_internal/client.py` — understand `_persist_message` behavior (what's stored, key structure, subpath conventions)
-2. Add persistence call in both `query.go` and `client.go` query loops when `Options.SessionStore` is non-nil
-3. Key by `(project_key, session_id, subpath)` matching Python conventions
-4. Keep it synchronous — no goroutines
+Transcript mirror handling (`transcript_mirror.go`):
+- `transcriptMirrorMessage` — internal message type, never yielded to callers
+- `parseTranscriptMirror` — deserializes wire format (`filePath` + `entries[]`)
+- `filePathToSessionKey` — derives `SessionKey` from file path using projects dir structure
+- `filePathToSessionKeyFromDir` — path-based key extraction for main transcripts (`<projectKey>/<sessionID>.jsonl`) and subagents (`<projectKey>/<sessionID>/subagents/<agent>.jsonl`)
+- Hash fallback — when path is outside projects dir, uses `basename-sha256[:16]`
+- `handleTranscriptMirror` — synchronous persistence to `SessionStore.Append`; returns `*MirrorErrorMessage` on failure
+
+Integration (`query.go`, `client.go`):
+- Both query loops intercept `*transcriptMirrorMessage` before yielding, call `handleTranscriptMirror` when `SessionStore` is set
+- `--session-mirror` CLI flag emitted when `SessionStore != nil`
+
+Options (`options.go`):
+- `ProjectsDir` field + `WithProjectsDir()` — configures path resolution for transcript mirror
+
+Parse (`parse.go`):
+- `"transcript_mirror"` case added to `parseLine` switch
+
+Tests (`transcript_mirror_test.go`):
+- Path-based key derivation (main, subagent, deeply nested)
+- Hash fallback (no projects dir, outside projects dir)
+- Parsing round-trip
+- Success, empty entries, store error persistence cases
 
 **Key files:**
-- Python: `_internal/client.py` (`_persist_message`)
-- Go: `query.go`, `client.go`, `session.go`
+- `transcript_mirror.go`, `transcript_mirror_test.go`
+- `query.go`, `client.go` (intercept points)
+- `options.go` (`ProjectsDir`)
 
 ---
 
-## Phase 6: Transcript Mirroring [TODO]
+## Phase 6: File Checkpointing and Rewind [DONE]
 
-**Goal:** Real-time batched transcript streaming to external consumers.
+**Goal:** Support file checkpoint/restore via CLI control protocol.
 
-**Steps:**
-1. Fetch Python SDK's `_internal/transcript_mirror_batcher.py` — understand batching strategy, flush intervals, and wire format
-2. Implement a `TranscriptMirror` interface or callback that receives batched messages
-3. Integrate into the query loop (flush on result, periodic flush if needed)
-4. Respect `Options.SessionStore` presence as the trigger
+**Finding:** The Python SDK does NOT manage checkpoints SDK-side. All checkpointing is CLI-internal, triggered by `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true`. The SDK's role is (a) setting the env var and (b) sending/handling `rewind_files` control requests.
+
+**Changes made:**
+
+`checkpoint.go`:
+- `Client.RewindFiles(ctx, userMessageID) error` — sends SDK→CLI control request to restore files to a checkpoint
+- `ErrCheckpointingDisabled`, `ErrNoSession` — sentinel errors
+- Internal helpers: `buildRewindArgs`, `sendRewindFilesRequest`, `awaitControlResponse`, `generateRequestID`
+- Starts a subprocess connected to the session, sends the control request, waits for response
+
+`control_handler.go`:
+- Broke `rewind_files` out of the no-op batch into `handleRewindFiles` which parses the `ControlRewindFilesRequest` and ACKs
+
+`checkpoint_test.go`:
+- `TestRewindFiles_CheckpointingDisabled` — verifies guard
+- `TestRewindFiles_NoSession` — verifies guard
+- `TestRewindFiles_ClientClosed` — verifies guard
+- `TestRewindFiles_Success` — round-trip via mock transport
+- `TestRewindFiles_ErrorResponse` — error propagation
+- `TestControlRequest_RewindFiles_FromCLI` — CLI→SDK handling
 
 **Key files:**
-- Python: `_internal/transcript_mirror_batcher.py`
-- Go: new `mirror.go` or inline in `query.go`
+- `checkpoint.go`, `checkpoint_test.go`
+- `control_handler.go` (rewind_files handling)
 
 ---
 
-## Phase 7: File Checkpointing and Rewind [TODO]
-
-**Goal:** Support file checkpoint/restore when the CLI requests a rewind.
-
-**Steps:**
-1. Fetch Python SDK's file checkpointing logic — understand when checkpoints are created and how `rewind_files` control requests trigger restoration
-2. Implement checkpoint creation (snapshot file state before tool execution)
-3. Handle `rewind_files` control request: restore files to checkpoint identified by `user_message_id`
-4. Gate behind `Options.FileCheckpointing` (already wires env var `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING`)
-
-**Key files:**
-- Python: `_internal/client.py` (checkpoint logic), control protocol handling
-- Go: `control_handler.go` (currently no-ops `rewind_files`), new `checkpoint.go`
-
----
-
-## Phase 8: End-to-End Integration Tests [TODO]
+## Phase 7: End-to-End Integration Tests [TODO]
 
 **Goal:** Verify complete flows work against the real CLI binary.
 

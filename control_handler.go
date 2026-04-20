@@ -27,7 +27,9 @@ func handleControlRequest(ctx context.Context, tr Transporter, o *Options, msg *
 		return handleInterrupt(tr, msg, cancelFn)
 	case "set_permission_mode":
 		return handleSetPermissionMode(tr, o, msg)
-	case "mcp_message", "rewind_files", "mcp_reconnect", "mcp_toggle", "stop_task":
+	case "rewind_files":
+		return handleRewindFiles(tr, msg)
+	case "mcp_message", "mcp_reconnect", "mcp_toggle", "stop_task":
 		return sendControlSuccess(tr, msg.RequestID, nil)
 	default:
 		return sendControlSuccess(tr, msg.RequestID, nil)
@@ -286,6 +288,14 @@ func handleSetPermissionMode(tr Transporter, o *Options, msg *ControlRequestMess
 		return sendControlError(tr, msg.RequestID, fmt.Sprintf("failed to parse set_permission_mode: %v", err))
 	}
 	o.PermissionMode = PermissionMode(req.Mode)
+	return sendControlSuccess(tr, msg.RequestID, nil)
+}
+
+func handleRewindFiles(tr Transporter, msg *ControlRequestMessage) error {
+	var req ControlRewindFilesRequest
+	if err := json.Unmarshal(msg.Request, &req); err != nil {
+		return sendControlError(tr, msg.RequestID, fmt.Sprintf("failed to parse rewind_files request: %v", err))
+	}
 	return sendControlSuccess(tr, msg.RequestID, nil)
 }
 
