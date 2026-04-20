@@ -8,7 +8,7 @@ Go SDK for building Claude-powered agents via the Claude CLI.
 ## Install
 
 ```sh
-go get github.com/johnayoung/claude-agent-sdk-go@v0.0.1
+go get github.com/johnayoung/claude-agent-sdk-go@latest
 ```
 
 Requires Go 1.23+ and the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated.
@@ -24,7 +24,6 @@ import (
 	"os"
 
 	claude "github.com/johnayoung/claude-agent-sdk-go"
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
 )
 
 func main() {
@@ -36,9 +35,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		if m, ok := msg.(*agent.AssistantMessage); ok {
+		if m, ok := msg.(*claude.AssistantMessage); ok {
 			for _, block := range m.Content {
-				if text, ok := block.(*agent.TextBlock); ok {
+				if text, ok := block.(*claude.TextBlock); ok {
 					fmt.Println(text.Text)
 				}
 			}
@@ -47,13 +46,23 @@ func main() {
 }
 ```
 
+## Packages
+
+| Import | Purpose |
+| --- | --- |
+| `claude "github.com/johnayoung/claude-agent-sdk-go"` | Core types, `Query`, `NewClient` |
+| `github.com/johnayoung/claude-agent-sdk-go/hooks` | Lifecycle event hooks |
+| `github.com/johnayoung/claude-agent-sdk-go/permission` | Tool permission callbacks |
+| `github.com/johnayoung/claude-agent-sdk-go/mcp` | MCP tool interface and server configs |
+| `github.com/johnayoung/claude-agent-sdk-go/agenttest` | Test utilities (mock transport, assertions) |
+
 ## Examples
 
-| Example | Description |
-|---------|-------------|
-| [basic-query](examples/basic-query/) | Single-turn query with streamed response |
-| [multi-turn](examples/multi-turn/) | Multi-turn conversation with session resumption |
-| [custom-tools](examples/custom-tools/) | In-process MCP tool implementation |
+| Example                                | Description                                     |
+| -------------------------------------- | ----------------------------------------------- |
+| [basic-query](examples/basic-query/)   | Single-turn query with streamed response        |
+| [multi-turn](examples/multi-turn/)     | Multi-turn conversation with session resumption |
+| [custom-tools](examples/custom-tools/) | In-process MCP tool implementation              |
 
 ## License
 

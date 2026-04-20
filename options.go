@@ -1,4 +1,4 @@
-package agent
+package claude
 
 import (
 	"context"
@@ -23,7 +23,8 @@ const (
 // CanUseToolFunc aliases permission.CanUseToolFunc for convenience.
 type CanUseToolFunc = permission.CanUseToolFunc
 
-// Transporter is the communication layer interface. transport.SubprocessTransport satisfies this.
+// Transporter is the communication layer interface. The default implementation
+// uses subprocess communication with the Claude CLI.
 type Transporter interface {
 	Start(ctx context.Context) error
 	Send(line []byte) error
@@ -122,7 +123,6 @@ func NewOptions(opts []Option) *Options {
 	return o
 }
 
-// applyDefaults fills zero-value fields with sensible defaults.
 func applyDefaults(o *Options) {
 	if o.CLIPath == "" {
 		if p, err := exec.LookPath("claude"); err == nil {

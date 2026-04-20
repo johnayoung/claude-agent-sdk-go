@@ -12,13 +12,11 @@ import (
 	"os"
 
 	claude "github.com/johnayoung/claude-agent-sdk-go"
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
 )
 
 func main() {
 	ctx := context.Background()
 
-	// NewClient resolves the claude CLI path; returns an error if not found.
 	client, err := claude.NewClient(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -36,7 +34,6 @@ func main() {
 		fmt.Printf("You: %s\n", prompt)
 		fmt.Print("Claude: ")
 
-		// client.Query resumes the prior session automatically after the first turn.
 		for msg, err := range client.Query(ctx, prompt) {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\nerror: %v\n", err)
@@ -44,13 +41,13 @@ func main() {
 			}
 
 			switch m := msg.(type) {
-			case *agent.AssistantMessage:
+			case *claude.AssistantMessage:
 				for _, block := range m.Content {
-					if text, ok := block.(*agent.TextBlock); ok {
+					if text, ok := block.(*claude.TextBlock); ok {
 						fmt.Print(text.Text)
 					}
 				}
-			case *agent.ResultMessage:
+			case *claude.ResultMessage:
 				fmt.Printf("\n[session: %s]\n\n", m.SessionID)
 			}
 		}

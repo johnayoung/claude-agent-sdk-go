@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
+	claude "github.com/johnayoung/claude-agent-sdk-go"
 )
 
 // AssertTextContent asserts that msg is an AssistantMessage whose first TextBlock equals want.
-func AssertTextContent(t testing.TB, msg agent.Message, want string) {
+func AssertTextContent(t testing.TB, msg claude.Message, want string) {
 	t.Helper()
-	am, ok := msg.(*agent.AssistantMessage)
+	am, ok := msg.(*claude.AssistantMessage)
 	if !ok {
-		t.Fatalf("AssertTextContent: expected *agent.AssistantMessage, got %T", msg)
+		t.Fatalf("AssertTextContent: expected *claude.AssistantMessage, got %T", msg)
 	}
 	for _, b := range am.Content {
-		if tb, ok := b.(*agent.TextBlock); ok {
+		if tb, ok := b.(*claude.TextBlock); ok {
 			if tb.Text != want {
 				t.Fatalf("AssertTextContent: got %q, want %q", tb.Text, want)
 			}
@@ -26,14 +26,14 @@ func AssertTextContent(t testing.TB, msg agent.Message, want string) {
 }
 
 // AssertToolUse asserts that msg is an AssistantMessage containing a ToolUseBlock with the given name.
-func AssertToolUse(t testing.TB, msg agent.Message, name string) *agent.ToolUseBlock {
+func AssertToolUse(t testing.TB, msg claude.Message, name string) *claude.ToolUseBlock {
 	t.Helper()
-	am, ok := msg.(*agent.AssistantMessage)
+	am, ok := msg.(*claude.AssistantMessage)
 	if !ok {
-		t.Fatalf("AssertToolUse: expected *agent.AssistantMessage, got %T", msg)
+		t.Fatalf("AssertToolUse: expected *claude.AssistantMessage, got %T", msg)
 	}
 	for _, b := range am.Content {
-		if tu, ok := b.(*agent.ToolUseBlock); ok && tu.Name == name {
+		if tu, ok := b.(*claude.ToolUseBlock); ok && tu.Name == name {
 			return tu
 		}
 	}
@@ -42,11 +42,11 @@ func AssertToolUse(t testing.TB, msg agent.Message, name string) *agent.ToolUseB
 }
 
 // AssertResult asserts that msg is a ResultMessage and returns it.
-func AssertResult(t testing.TB, msg agent.Message) *agent.ResultMessage {
+func AssertResult(t testing.TB, msg claude.Message) *claude.ResultMessage {
 	t.Helper()
-	rm, ok := msg.(*agent.ResultMessage)
+	rm, ok := msg.(*claude.ResultMessage)
 	if !ok {
-		t.Fatalf("AssertResult: expected *agent.ResultMessage, got %T", msg)
+		t.Fatalf("AssertResult: expected *claude.ResultMessage, got %T", msg)
 	}
 	return rm
 }
@@ -61,7 +61,7 @@ func AssertNoError(t testing.TB, err error) {
 
 // CollectMessages drains messages from a channel into a slice, stopping on error.
 // Use this with the slice returned by collecting from Query iterators in tests.
-func CollectMessages(messages []agent.Message, errs []error) ([]agent.Message, error) {
+func CollectMessages(messages []claude.Message, errs []error) ([]claude.Message, error) {
 	for _, err := range errs {
 		if err != nil {
 			return messages, err
@@ -72,7 +72,7 @@ func CollectMessages(messages []agent.Message, errs []error) ([]agent.Message, e
 
 // MustNewMockTransport calls NewMockTransport and panics on error.
 // Intended for use in test setup where panicking is acceptable.
-func MustNewMockTransport(messages ...agent.Message) *MockTransport {
+func MustNewMockTransport(messages ...claude.Message) *MockTransport {
 	tr, err := NewMockTransport(messages...)
 	if err != nil {
 		panic(fmt.Sprintf("agenttest.MustNewMockTransport: %v", err))

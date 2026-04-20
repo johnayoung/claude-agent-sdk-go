@@ -24,8 +24,8 @@
         "All content blocks implement a ContentBlock interface",
         "Error types support errors.As() unwrapping with contextual fields"
       ],
-      "passing": false,
-      "implementation_notes": "",
+      "passing": true,
+      "implementation_notes": "Implemented all message types (UserMessage, AssistantMessage, SystemMessage, ResultMessage, TaskStarted, TaskProgress, TaskNotification), content blocks (TextBlock, ThinkingBlock, ToolUseBlock, ToolResultBlock), error types (CLINotFoundError, ProcessError, JSONDecodeError, MessageParseError), and additional types (RateLimitInfo, ContextUsage, McpServerStatus, AgentDefinition, SandboxConfig) in the agent/ package. Go module initialized with go 1.22. Commit: 52fd9fe",
       "github_item_id": null,
       "prerequisites": [],
       "parallel_group": null,
@@ -48,8 +48,8 @@
         "WithCLIPath option overrides PATH discovery",
         "Context cancellation terminates the subprocess cleanly"
       ],
-      "passing": false,
-      "implementation_notes": "",
+      "passing": true,
+      "implementation_notes": "Implemented Transport interface in transport/transport.go with Start/Send/Receive/Close methods. SubprocessTransport in transport/subprocess.go uses exec.CommandContext for lifecycle management, exec.LookPath for PATH discovery (returning CLINotFoundError on failure), and WithCLIPath option for override. Send is mutex-protected; Receive returns io.EOF on subprocess exit. Commit: 39ebcde",
       "github_item_id": null,
       "prerequisites": ["CASG-0001"],
       "parallel_group": null,
@@ -70,8 +70,8 @@
         "Malformed JSON returns JSONDecodeError with raw line content",
         "Unknown message types are handled without panic (logged or wrapped)"
       ],
-      "passing": false,
-      "implementation_notes": "",
+      "passing": true,
+      "implementation_notes": "Implemented internal/parse package with ParseLine function that discriminates on the JSON 'type' field and deserializes into typed agent.Message structs. Handles all 7 message types (user, assistant, system, result, task_started, task_progress, task_notification). Content blocks (text, thinking, tool_use, tool_result) are parsed via intermediate json.RawMessage slices. Malformed JSON returns JSONDecodeError; unknown types return MessageParseError; unknown content block types are silently skipped. 10 tests covering all paths. Commit: d722d25",
       "github_item_id": null,
       "prerequisites": ["CASG-0001"],
       "parallel_group": null,

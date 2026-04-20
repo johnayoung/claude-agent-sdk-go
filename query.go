@@ -7,24 +7,22 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
-	"github.com/johnayoung/claude-agent-sdk-go/internal/parse"
-	"github.com/johnayoung/claude-agent-sdk-go/transport"
+	"github.com/johnayoung/claude-agent-sdk-go/internal/transport"
 )
 
 // Query launches the Claude CLI with prompt and streams back messages.
 // The iterator terminates after a ResultMessage or on context cancellation.
 // Transport is always cleaned up, even on early break.
-func Query(ctx context.Context, prompt string, opts ...agent.Option) iter.Seq2[agent.Message, error] {
-	return func(yield func(agent.Message, error) bool) {
-		o := agent.NewOptions(opts)
+func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message, error] {
+	return func(yield func(Message, error) bool) {
+		o := NewOptions(opts)
 
-		var tr agent.Transporter
+		var tr Transporter
 		if o.Transport != nil {
 			tr = o.Transport
 		} else {
 			if o.CLIPath == "" {
-				yield(nil, &agent.CLINotFoundError{SearchPath: os.Getenv("PATH")})
+				yield(nil, &CLINotFoundError{SearchPath: os.Getenv("PATH")})
 				return
 			}
 			args := buildQueryArgs(prompt, o)
@@ -50,7 +48,7 @@ func Query(ctx context.Context, prompt string, opts ...agent.Option) iter.Seq2[a
 				return
 			}
 
-			msg, parseErr := parse.ParseLine(line)
+			msg, parseErr := parseLine(line)
 			if parseErr != nil {
 				if !yield(nil, parseErr) {
 					return
@@ -62,14 +60,14 @@ func Query(ctx context.Context, prompt string, opts ...agent.Option) iter.Seq2[a
 				return
 			}
 
-			if _, ok := msg.(*agent.ResultMessage); ok {
+			if _, ok := msg.(*ResultMessage); ok {
 				return
 			}
 		}
 	}
 }
 
-func buildQueryArgs(prompt string, o *agent.Options) []string {
+func buildQueryArgs(prompt string, o *Options) []string {
 	args := []string{
 		"--print", prompt,
 		"--output-format", "stream-json",
@@ -80,7 +78,7 @@ func buildQueryArgs(prompt string, o *agent.Options) []string {
 	if o.MaxTurns > 0 {
 		args = append(args, "--max-turns", strconv.Itoa(o.MaxTurns))
 	}
-	if o.PermissionMode != "" && o.PermissionMode != agent.PermissionModeDefault {
+	if o.PermissionMode != "" && o.PermissionMode != PermissionModeDefault {
 		args = append(args, "--permission-mode", string(o.PermissionMode))
 	}
 	return args

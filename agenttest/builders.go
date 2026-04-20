@@ -3,33 +3,33 @@ package agenttest
 import (
 	"encoding/json"
 
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
+	claude "github.com/johnayoung/claude-agent-sdk-go"
 )
 
 // NewTextMessage returns an AssistantMessage with a single TextBlock.
-func NewTextMessage(text string) *agent.AssistantMessage {
-	return &agent.AssistantMessage{
+func NewTextMessage(text string) *claude.AssistantMessage {
+	return &claude.AssistantMessage{
 		Role: "assistant",
-		Content: []agent.ContentBlock{
-			&agent.TextBlock{Type: "text", Text: text},
+		Content: []claude.ContentBlock{
+			&claude.TextBlock{Type: "text", Text: text},
 		},
 	}
 }
 
 // NewToolUseMessage returns an AssistantMessage with a single ToolUseBlock.
-func NewToolUseMessage(id, name string, input any) *agent.AssistantMessage {
+func NewToolUseMessage(id, name string, input any) *claude.AssistantMessage {
 	raw, _ := json.Marshal(input)
-	return &agent.AssistantMessage{
+	return &claude.AssistantMessage{
 		Role: "assistant",
-		Content: []agent.ContentBlock{
-			&agent.ToolUseBlock{Type: "tool_use", ID: id, Name: name, Input: raw},
+		Content: []claude.ContentBlock{
+			&claude.ToolUseBlock{Type: "tool_use", ID: id, Name: name, Input: raw},
 		},
 	}
 }
 
 // NewResultMessage returns a ResultMessage with the given result text and session ID.
-func NewResultMessage(result, sessionID string) *agent.ResultMessage {
-	return &agent.ResultMessage{
+func NewResultMessage(result, sessionID string) *claude.ResultMessage {
+	return &claude.ResultMessage{
 		Subtype:   "success",
 		Result:    result,
 		SessionID: sessionID,

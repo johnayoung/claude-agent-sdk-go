@@ -1,10 +1,8 @@
-package parse
+package claude
 
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
 )
 
 type envelope struct {
@@ -20,12 +18,10 @@ type rawBlock struct {
 	Type string `json:"type"`
 }
 
-// ParseLine parses a single newline-delimited JSON line into a typed Message.
-// Returns JSONDecodeError for malformed JSON and MessageParseError for unknown types.
-func ParseLine(line []byte) (agent.Message, error) {
+func parseLine(line []byte) (Message, error) {
 	var env envelope
 	if err := json.Unmarshal(line, &env); err != nil {
-		return nil, &agent.JSONDecodeError{RawLine: string(line), Err: err}
+		return nil, &JSONDecodeError{RawLine: string(line), Err: err}
 	}
 
 	switch env.Type {
@@ -34,37 +30,37 @@ func ParseLine(line []byte) (agent.Message, error) {
 	case "assistant":
 		return parseAssistantMessage(line)
 	case "system":
-		var m agent.SystemMessage
+		var m SystemMessage
 		if err := json.Unmarshal(line, &m); err != nil {
-			return nil, &agent.MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
+			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
 	case "result":
-		var m agent.ResultMessage
+		var m ResultMessage
 		if err := json.Unmarshal(line, &m); err != nil {
-			return nil, &agent.MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
+			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
 	case "task_started":
-		var m agent.TaskStarted
+		var m TaskStarted
 		if err := json.Unmarshal(line, &m); err != nil {
-			return nil, &agent.MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
+			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
 	case "task_progress":
-		var m agent.TaskProgress
+		var m TaskProgress
 		if err := json.Unmarshal(line, &m); err != nil {
-			return nil, &agent.MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
+			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
 	case "task_notification":
-		var m agent.TaskNotification
+		var m TaskNotification
 		if err := json.Unmarshal(line, &m); err != nil {
-			return nil, &agent.MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
+			return nil, &MessageParseError{TypeField: env.Type, RawJSON: string(line), Err: err}
 		}
 		return &m, nil
 	default:
-		return nil, &agent.MessageParseError{
+		return nil, &MessageParseError{
 			TypeField: env.Type,
 			RawJSON:   string(line),
 			Err:       fmt.Errorf("unknown message type %q", env.Type),
@@ -72,32 +68,32 @@ func ParseLine(line []byte) (agent.Message, error) {
 	}
 }
 
-func parseUserMessage(line []byte) (agent.Message, error) {
+func parseUserMessage(line []byte) (Message, error) {
 	var raw rawContentMessage
 	if err := json.Unmarshal(line, &raw); err != nil {
-		return nil, &agent.MessageParseError{TypeField: "user", RawJSON: string(line), Err: err}
+		return nil, &MessageParseError{TypeField: "user", RawJSON: string(line), Err: err}
 	}
 	blocks, err := parseContentBlocks(raw.Content)
 	if err != nil {
-		return nil, &agent.MessageParseError{TypeField: "user", RawJSON: string(line), Err: err}
+		return nil, &MessageParseError{TypeField: "user", RawJSON: string(line), Err: err}
 	}
-	return &agent.UserMessage{Role: raw.Role, Content: blocks}, nil
+	return &UserMessage{Role: raw.Role, Content: blocks}, nil
 }
 
-func parseAssistantMessage(line []byte) (agent.Message, error) {
+func parseAssistantMessage(line []byte) (Message, error) {
 	var raw rawContentMessage
 	if err := json.Unmarshal(line, &raw); err != nil {
-		return nil, &agent.MessageParseError{TypeField: "assistant", RawJSON: string(line), Err: err}
+		return nil, &MessageParseError{TypeField: "assistant", RawJSON: string(line), Err: err}
 	}
 	blocks, err := parseContentBlocks(raw.Content)
 	if err != nil {
-		return nil, &agent.MessageParseError{TypeField: "assistant", RawJSON: string(line), Err: err}
+		return nil, &MessageParseError{TypeField: "assistant", RawJSON: string(line), Err: err}
 	}
-	return &agent.AssistantMessage{Role: raw.Role, Content: blocks}, nil
+	return &AssistantMessage{Role: raw.Role, Content: blocks}, nil
 }
 
-func parseContentBlocks(raws []json.RawMessage) ([]agent.ContentBlock, error) {
-	blocks := make([]agent.ContentBlock, 0, len(raws))
+func parseContentBlocks(raws []json.RawMessage) ([]ContentBlock, error) {
+	blocks := make([]ContentBlock, 0, len(raws))
 	for _, raw := range raws {
 		var rb rawBlock
 		if err := json.Unmarshal(raw, &rb); err != nil {
@@ -105,31 +101,30 @@ func parseContentBlocks(raws []json.RawMessage) ([]agent.ContentBlock, error) {
 		}
 		switch rb.Type {
 		case "text":
-			var b agent.TextBlock
+			var b TextBlock
 			if err := json.Unmarshal(raw, &b); err != nil {
 				return nil, err
 			}
 			blocks = append(blocks, &b)
 		case "thinking":
-			var b agent.ThinkingBlock
+			var b ThinkingBlock
 			if err := json.Unmarshal(raw, &b); err != nil {
 				return nil, err
 			}
 			blocks = append(blocks, &b)
 		case "tool_use":
-			var b agent.ToolUseBlock
+			var b ToolUseBlock
 			if err := json.Unmarshal(raw, &b); err != nil {
 				return nil, err
 			}
 			blocks = append(blocks, &b)
 		case "tool_result":
-			var b agent.ToolResultBlock
+			var b ToolResultBlock
 			if err := json.Unmarshal(raw, &b); err != nil {
 				return nil, err
 			}
 			blocks = append(blocks, &b)
 		}
-		// unknown content block types are silently skipped
 	}
 	return blocks, nil
 }

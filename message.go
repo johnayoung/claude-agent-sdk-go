@@ -1,4 +1,4 @@
-package agent
+package claude
 
 // Message is the common interface for all message types received from the Claude CLI.
 type Message interface {

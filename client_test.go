@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	claude "github.com/johnayoung/claude-agent-sdk-go"
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
 )
 
 var (
@@ -88,7 +87,7 @@ func TestClient_SequentialQueries(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	client, err := claude.NewClient(ctx, agent.WithTransport(tr))
+	client, err := claude.NewClient(ctx, claude.WithTransport(tr))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +111,7 @@ func TestClient_SequentialQueries(t *testing.T) {
 func TestClient_ConcurrentQueryReturnsError(t *testing.T) {
 	rt := newReadyTransport()
 	ctx := context.Background()
-	client, err := claude.NewClient(ctx, agent.WithTransport(rt))
+	client, err := claude.NewClient(ctx, claude.WithTransport(rt))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +137,7 @@ func TestClient_ConcurrentQueryReturnsError(t *testing.T) {
 func TestClient_CloseTerminatesTransport(t *testing.T) {
 	rt := newReadyTransport()
 	ctx := context.Background()
-	client, err := claude.NewClient(ctx, agent.WithTransport(rt))
+	client, err := claude.NewClient(ctx, claude.WithTransport(rt))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,13 +172,13 @@ func TestClient_CloseTerminatesTransport(t *testing.T) {
 func TestClient_WorksWithCustomTransport(t *testing.T) {
 	tr := &seqTransport{lines: [][]byte{assistantJSON, resultJSON}}
 	ctx := context.Background()
-	client, err := claude.NewClient(ctx, agent.WithTransport(tr))
+	client, err := claude.NewClient(ctx, claude.WithTransport(tr))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer client.Close()
 
-	var msgs []agent.Message
+	var msgs []claude.Message
 	for msg, err := range client.Query(ctx, "hello") {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -189,7 +188,7 @@ func TestClient_WorksWithCustomTransport(t *testing.T) {
 	if len(msgs) != 2 {
 		t.Fatalf("expected 2 messages, got %d", len(msgs))
 	}
-	if _, ok := msgs[1].(*agent.ResultMessage); !ok {
+	if _, ok := msgs[1].(*claude.ResultMessage); !ok {
 		t.Errorf("last message should be ResultMessage, got %T", msgs[1])
 	}
 }
@@ -197,7 +196,7 @@ func TestClient_WorksWithCustomTransport(t *testing.T) {
 func TestClient_ClosedClientReturnsError(t *testing.T) {
 	tr := &seqTransport{lines: [][]byte{resultJSON}}
 	ctx := context.Background()
-	client, err := claude.NewClient(ctx, agent.WithTransport(tr))
+	client, err := claude.NewClient(ctx, claude.WithTransport(tr))
 	if err != nil {
 		t.Fatal(err)
 	}

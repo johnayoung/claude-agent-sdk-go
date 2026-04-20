@@ -3,13 +3,14 @@ package transport
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"sync"
-
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
 )
+
+var _ Transport = (*SubprocessTransport)(nil)
 
 const scannerBufSize = 1 << 20 // 1 MiB — large messages from Claude can exceed the default 64 KiB
 
@@ -50,7 +51,7 @@ func (t *SubprocessTransport) Start(ctx context.Context) error {
 	if cliPath == "" {
 		p, err := exec.LookPath("claude")
 		if err != nil {
-			return &agent.CLINotFoundError{SearchPath: os.Getenv("PATH")}
+			return fmt.Errorf("claude CLI not found in PATH (%s): %w", os.Getenv("PATH"), err)
 		}
 		cliPath = p
 	}

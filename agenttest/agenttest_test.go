@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
+	claude "github.com/johnayoung/claude-agent-sdk-go"
 	"github.com/johnayoung/claude-agent-sdk-go/agenttest"
 )
 
@@ -42,7 +42,7 @@ func TestMockTransport_ReplayMessages(t *testing.T) {
 
 func TestMockTransport_ImplementsTransporter(t *testing.T) {
 	tr := agenttest.MustNewMockTransport()
-	var _ agent.Transporter = tr
+	var _ claude.Transporter = tr
 }
 
 func TestMockTransport_Send(t *testing.T) {
@@ -62,9 +62,9 @@ func TestNewTextMessage(t *testing.T) {
 	if len(msg.Content) != 1 {
 		t.Fatalf("expected 1 content block, got %d", len(msg.Content))
 	}
-	tb, ok := msg.Content[0].(*agent.TextBlock)
+	tb, ok := msg.Content[0].(*claude.TextBlock)
 	if !ok {
-		t.Fatalf("expected *agent.TextBlock, got %T", msg.Content[0])
+		t.Fatalf("expected *claude.TextBlock, got %T", msg.Content[0])
 	}
 	if tb.Text != "greetings" {
 		t.Errorf("expected text %q, got %q", "greetings", tb.Text)
@@ -73,9 +73,9 @@ func TestNewTextMessage(t *testing.T) {
 
 func TestNewToolUseMessage(t *testing.T) {
 	msg := agenttest.NewToolUseMessage("tu_1", "bash", map[string]string{"command": "ls"})
-	tu, ok := msg.Content[0].(*agent.ToolUseBlock)
+	tu, ok := msg.Content[0].(*claude.ToolUseBlock)
 	if !ok {
-		t.Fatalf("expected *agent.ToolUseBlock, got %T", msg.Content[0])
+		t.Fatalf("expected *claude.ToolUseBlock, got %T", msg.Content[0])
 	}
 	if tu.Name != "bash" {
 		t.Errorf("expected name bash, got %q", tu.Name)
@@ -117,8 +117,6 @@ func TestAssertResult(t *testing.T) {
 }
 
 func TestMockTransport_RoundTrip(t *testing.T) {
-	// Verify that messages serialized by MockTransport are parseable back into typed messages.
-	// This exercises the wire format round-trip through the internal parser.
 	text := agenttest.NewTextMessage("round trip")
 	result := agenttest.NewResultMessage("ok", "s1")
 

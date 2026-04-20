@@ -9,11 +9,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
+	claude "github.com/johnayoung/claude-agent-sdk-go"
 )
 
 // MockTransport replays a fixed sequence of messages as JSON lines.
-// It implements agent.Transporter and is safe for single-goroutine use.
+// It implements claude.Transporter and is safe for single-goroutine use.
 type MockTransport struct {
 	lines [][]byte
 	idx   int
@@ -23,7 +23,7 @@ type MockTransport struct {
 
 // NewMockTransport creates a MockTransport that replays the given messages in order.
 // Returns an error if any message cannot be serialized to the wire format.
-func NewMockTransport(messages ...agent.Message) (*MockTransport, error) {
+func NewMockTransport(messages ...claude.Message) (*MockTransport, error) {
 	lines := make([][]byte, 0, len(messages))
 	for _, msg := range messages {
 		line, err := marshalMessage(msg)
@@ -35,10 +35,10 @@ func NewMockTransport(messages ...agent.Message) (*MockTransport, error) {
 	return &MockTransport{lines: lines}, nil
 }
 
-// Start satisfies agent.Transporter; always succeeds.
+// Start satisfies claude.Transporter; always succeeds.
 func (m *MockTransport) Start(_ context.Context) error { return nil }
 
-// Close satisfies agent.Transporter; always succeeds.
+// Close satisfies claude.Transporter; always succeeds.
 func (m *MockTransport) Close() error { return nil }
 
 // Send records the line so tests can inspect outgoing messages via Sent().
@@ -130,17 +130,17 @@ type wireTaskNotification struct {
 	Message string `json:"message"`
 }
 
-func marshalMessage(msg agent.Message) ([]byte, error) {
+func marshalMessage(msg claude.Message) ([]byte, error) {
 	switch v := msg.(type) {
-	case *agent.AssistantMessage:
+	case *claude.AssistantMessage:
 		w := wireContentMessage{Type: "assistant", Role: v.Role, Content: blocksToWire(v.Content)}
 		return json.Marshal(w)
-	case *agent.UserMessage:
+	case *claude.UserMessage:
 		w := wireContentMessage{Type: "user", Role: v.Role, Content: blocksToWire(v.Content)}
 		return json.Marshal(w)
-	case *agent.SystemMessage:
+	case *claude.SystemMessage:
 		return json.Marshal(wireSystem{Type: "system", Content: v.Content})
-	case *agent.ResultMessage:
+	case *claude.ResultMessage:
 		return json.Marshal(wireResult{
 			Type:        "result",
 			Subtype:     v.Subtype,
@@ -153,28 +153,28 @@ func marshalMessage(msg agent.Message) ([]byte, error) {
 			TotalInput:  v.TotalInput,
 			TotalOutput: v.TotalOutput,
 		})
-	case *agent.TaskStarted:
+	case *claude.TaskStarted:
 		return json.Marshal(wireTaskStarted{Type: "task_started", SessionID: v.SessionID})
-	case *agent.TaskProgress:
+	case *claude.TaskProgress:
 		return json.Marshal(wireTaskProgress{Type: "task_progress", Message: v.Message})
-	case *agent.TaskNotification:
+	case *claude.TaskNotification:
 		return json.Marshal(wireTaskNotification{Type: "task_notification", Title: v.Title, Message: v.Message})
 	default:
 		return nil, fmt.Errorf("unsupported message type %T", msg)
 	}
 }
 
-func blocksToWire(blocks []agent.ContentBlock) []wireContentBlock {
+func blocksToWire(blocks []claude.ContentBlock) []wireContentBlock {
 	out := make([]wireContentBlock, 0, len(blocks))
 	for _, b := range blocks {
 		switch v := b.(type) {
-		case *agent.TextBlock:
+		case *claude.TextBlock:
 			out = append(out, wireContentBlock{Type: "text", Text: v.Text})
-		case *agent.ThinkingBlock:
+		case *claude.ThinkingBlock:
 			out = append(out, wireContentBlock{Type: "thinking", Thinking: v.Thinking})
-		case *agent.ToolUseBlock:
+		case *claude.ToolUseBlock:
 			out = append(out, wireContentBlock{Type: "tool_use", ID: v.ID, Name: v.Name, Input: v.Input})
-		case *agent.ToolResultBlock:
+		case *claude.ToolResultBlock:
 			out = append(out, wireContentBlock{
 				Type:      "tool_result",
 				ToolUseID: v.ToolUseID,

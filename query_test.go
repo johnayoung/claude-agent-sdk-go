@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	claude "github.com/johnayoung/claude-agent-sdk-go"
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
 )
 
 // seqTransport is a Transporter that serves pre-loaded JSON lines then returns io.EOF.
@@ -69,8 +68,8 @@ var (
 
 func TestQuery_YieldsMessages(t *testing.T) {
 	tr := &seqTransport{lines: [][]byte{assistantJSON, resultJSON}}
-	var msgs []agent.Message
-	for msg, err := range claude.Query(context.Background(), "hello", agent.WithTransport(tr)) {
+	var msgs []claude.Message
+	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -79,18 +78,18 @@ func TestQuery_YieldsMessages(t *testing.T) {
 	if len(msgs) != 2 {
 		t.Fatalf("expected 2 messages, got %d", len(msgs))
 	}
-	if _, ok := msgs[0].(*agent.AssistantMessage); !ok {
+	if _, ok := msgs[0].(*claude.AssistantMessage); !ok {
 		t.Errorf("msgs[0]: want *AssistantMessage, got %T", msgs[0])
 	}
-	if _, ok := msgs[1].(*agent.ResultMessage); !ok {
+	if _, ok := msgs[1].(*claude.ResultMessage); !ok {
 		t.Errorf("msgs[1]: want *ResultMessage, got %T", msgs[1])
 	}
 }
 
 func TestQuery_AllMessageTypes(t *testing.T) {
 	tr := &seqTransport{lines: [][]byte{systemJSON, assistantJSON, userJSON, resultJSON}}
-	var msgs []agent.Message
-	for msg, err := range claude.Query(context.Background(), "hello", agent.WithTransport(tr)) {
+	var msgs []claude.Message
+	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -99,16 +98,16 @@ func TestQuery_AllMessageTypes(t *testing.T) {
 	if len(msgs) != 4 {
 		t.Fatalf("expected 4 messages, got %d", len(msgs))
 	}
-	if _, ok := msgs[0].(*agent.SystemMessage); !ok {
+	if _, ok := msgs[0].(*claude.SystemMessage); !ok {
 		t.Errorf("msgs[0]: want *SystemMessage, got %T", msgs[0])
 	}
-	if _, ok := msgs[1].(*agent.AssistantMessage); !ok {
+	if _, ok := msgs[1].(*claude.AssistantMessage); !ok {
 		t.Errorf("msgs[1]: want *AssistantMessage, got %T", msgs[1])
 	}
-	if _, ok := msgs[2].(*agent.UserMessage); !ok {
+	if _, ok := msgs[2].(*claude.UserMessage); !ok {
 		t.Errorf("msgs[2]: want *UserMessage, got %T", msgs[2])
 	}
-	if _, ok := msgs[3].(*agent.ResultMessage); !ok {
+	if _, ok := msgs[3].(*claude.ResultMessage); !ok {
 		t.Errorf("msgs[3]: want *ResultMessage, got %T", msgs[3])
 	}
 }
@@ -116,7 +115,7 @@ func TestQuery_AllMessageTypes(t *testing.T) {
 func TestQuery_EarlyBreakCleansUpTransport(t *testing.T) {
 	tr := &seqTransport{lines: [][]byte{assistantJSON, assistantJSON, resultJSON}}
 	count := 0
-	for msg, err := range claude.Query(context.Background(), "hello", agent.WithTransport(tr)) {
+	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -143,7 +142,7 @@ func TestQuery_ContextCancellationPropagates(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for _, err := range claude.Query(ctx, "hello", agent.WithTransport(bt)) {
+		for _, err := range claude.Query(ctx, "hello", claude.WithTransport(bt)) {
 			if err != nil {
 				gotErr = err
 				return
@@ -166,10 +165,9 @@ func TestQuery_ContextCancellationPropagates(t *testing.T) {
 }
 
 func TestQuery_ResultMessageTerminatesStream(t *testing.T) {
-	// Extra lines after result should not be yielded.
 	tr := &seqTransport{lines: [][]byte{resultJSON, assistantJSON}}
-	var msgs []agent.Message
-	for msg, err := range claude.Query(context.Background(), "hello", agent.WithTransport(tr)) {
+	var msgs []claude.Message
+	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

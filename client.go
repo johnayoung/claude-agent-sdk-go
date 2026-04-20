@@ -8,9 +8,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
-	"github.com/johnayoung/claude-agent-sdk-go/internal/parse"
-	"github.com/johnayoung/claude-agent-sdk-go/transport"
+	"github.com/johnayoung/claude-agent-sdk-go/internal/transport"
 )
 
 // ErrClientBusy is returned when Query is called while another query is in progress.
@@ -23,7 +21,7 @@ var ErrClientClosed = errors.New("claude: client is closed")
 // Each Query resumes the same session using the session ID from the previous result.
 // Client is safe to use from a single goroutine; concurrent Query calls return ErrClientBusy.
 type Client struct {
-	opts      *agent.Options
+	opts      *Options
 	sessionID string
 	mu        sync.Mutex
 	busy      bool
@@ -33,10 +31,10 @@ type Client struct {
 
 // NewClient creates a Client configured with the given options.
 // Returns an error if the CLI binary cannot be found and no custom Transport is provided.
-func NewClient(ctx context.Context, opts ...agent.Option) (*Client, error) {
-	o := agent.NewOptions(opts)
+func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
+	o := NewOptions(opts)
 	if o.Transport == nil && o.CLIPath == "" {
-		return nil, &agent.CLINotFoundError{SearchPath: os.Getenv("PATH")}
+		return nil, &CLINotFoundError{SearchPath: os.Getenv("PATH")}
 	}
 	return &Client{opts: o}, nil
 }
@@ -44,8 +42,8 @@ func NewClient(ctx context.Context, opts ...agent.Option) (*Client, error) {
 // Query sends prompt to the Claude CLI and returns a streaming iterator over the response.
 // If a previous Query produced a ResultMessage with a session ID, the conversation is resumed
 // automatically via --resume. Returns ErrClientBusy or ErrClientClosed on misuse.
-func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[agent.Message, error] {
-	return func(yield func(agent.Message, error) bool) {
+func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, error] {
+	return func(yield func(Message, error) bool) {
 		c.mu.Lock()
 		if c.closed {
 			c.mu.Unlock()
@@ -71,7 +69,7 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[agent.Messa
 			c.mu.Unlock()
 		}()
 
-		var tr agent.Transporter
+		var tr Transporter
 		if c.opts.Transport != nil {
 			tr = c.opts.Transport
 		} else {
@@ -98,7 +96,7 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[agent.Messa
 				return
 			}
 
-			msg, parseErr := parse.ParseLine(line)
+			msg, parseErr := parseLine(line)
 			if parseErr != nil {
 				if !yield(nil, parseErr) {
 					return
@@ -106,7 +104,7 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[agent.Messa
 				continue
 			}
 
-			if result, ok := msg.(*agent.ResultMessage); ok {
+			if result, ok := msg.(*ResultMessage); ok {
 				if result.SessionID != "" {
 					c.mu.Lock()
 					c.sessionID = result.SessionID
@@ -136,7 +134,7 @@ func (c *Client) Close() error {
 	return nil
 }
 
-func buildClientArgs(prompt string, o *agent.Options, sessionID string) []string {
+func buildClientArgs(prompt string, o *Options, sessionID string) []string {
 	args := buildQueryArgs(prompt, o)
 	if sessionID != "" {
 		args = append(args, "--resume", sessionID)

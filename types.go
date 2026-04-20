@@ -1,4 +1,4 @@
-package agent
+package claude
 
 // RateLimitInfo contains rate limit status from the API.
 type RateLimitInfo struct {
@@ -20,10 +20,10 @@ type ContextUsage struct {
 
 // McpServerStatus represents the connection status of an MCP server.
 type McpServerStatus struct {
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Error     string `json:"error,omitempty"`
-	NumTools  int    `json:"num_tools"`
+	Name      string   `json:"name"`
+	Status    string   `json:"status"`
+	Error     string   `json:"error,omitempty"`
+	NumTools  int      `json:"num_tools"`
 	ToolNames []string `json:"tool_names,omitempty"`
 }
 

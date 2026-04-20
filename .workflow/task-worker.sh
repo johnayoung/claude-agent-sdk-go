@@ -168,7 +168,7 @@ next_task() {
         select(
           .prerequisites == null or
           .prerequisites == [] or
-          ([ .prerequisites[] | $status[.] == true ] | all)
+          ([ .prerequisites[] | $status[.] // true | . == true ] | all)
         )
       ] |
       # Sort by priority (lowest first)
@@ -297,7 +297,7 @@ while true; do
   set +e
   claude --dangerously-skip-permissions \
     -p "/task-execute $TASK_ID $PHASE_BASENAME" \
-    --model claude-opus-4-6 \
+    --model sonnet \
     --output-format stream-json \
     --verbose \
     &> "$LOGFILE"

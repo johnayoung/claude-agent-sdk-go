@@ -1,6 +1,6 @@
 // custom-tools demonstrates registering in-process tools via the MCP SDK server.
 // The Tool interface is implemented locally and served to the Claude CLI without
-// a separate subprocess — the SDK handles the MCP protocol internally.
+// a separate subprocess -- the SDK handles the MCP protocol internally.
 //
 // Run:
 //
@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	claude "github.com/johnayoung/claude-agent-sdk-go"
-	"github.com/johnayoung/claude-agent-sdk-go/agent"
 	"github.com/johnayoung/claude-agent-sdk-go/mcp"
 )
 
@@ -25,7 +24,6 @@ type upperTool struct{}
 func (upperTool) Name() string        { return "to_upper" }
 func (upperTool) Description() string { return "Converts a string to uppercase" }
 
-// InputSchema returns a JSON Schema describing the tool's accepted parameters.
 func (upperTool) InputSchema() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
@@ -36,7 +34,6 @@ func (upperTool) InputSchema() json.RawMessage {
 	}`)
 }
 
-// Run is called by the SDK when the Claude CLI invokes this tool.
 func (upperTool) Run(_ context.Context, input map[string]any) (json.RawMessage, error) {
 	text, _ := input["text"].(string)
 	result := strings.ToUpper(text)
@@ -46,15 +43,13 @@ func (upperTool) Run(_ context.Context, input map[string]any) (json.RawMessage, 
 func main() {
 	ctx := context.Background()
 
-	// NewMCPServer wraps in-process Tool implementations so the Claude CLI can call them.
 	server := mcp.NewMCPServer(upperTool{})
 
-	// WithMCPServers registers the server; the CLI discovers tools from it automatically.
 	for msg, err := range claude.Query(ctx,
 		"Use the to_upper tool to convert 'hello world' to uppercase, then tell me the result.",
-		agent.WithMCPServers(agent.MCPServerConfig{
+		claude.WithMCPServers(claude.MCPServerConfig{
 			Name: server.Name,
-			Type: agent.MCPServerTypeSDK,
+			Type: claude.MCPServerTypeSDK,
 		}),
 	) {
 		if err != nil {
@@ -63,16 +58,16 @@ func main() {
 		}
 
 		switch m := msg.(type) {
-		case *agent.AssistantMessage:
+		case *claude.AssistantMessage:
 			for _, block := range m.Content {
 				switch b := block.(type) {
-				case *agent.TextBlock:
+				case *claude.TextBlock:
 					fmt.Println(b.Text)
-				case *agent.ToolUseBlock:
+				case *claude.ToolUseBlock:
 					fmt.Printf("[tool call: %s]\n", b.Name)
 				}
 			}
-		case *agent.ResultMessage:
+		case *claude.ResultMessage:
 			fmt.Printf("\ncost: $%.6f\n", m.CostUSD)
 		}
 	}

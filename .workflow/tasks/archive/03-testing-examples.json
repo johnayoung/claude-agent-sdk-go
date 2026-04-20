@@ -2,7 +2,9 @@
   "phase": {
     "id": "testing-examples",
     "name": "Testing & Examples",
-    "depends_on_phases": ["core-api"],
+    "depends_on_phases": [
+      "core-api"
+    ],
     "exit_criteria": "Mock transport, test helpers, runnable example programs, and open source scaffolding exist with go build/test passing"
   },
   "tasks": [
@@ -22,10 +24,12 @@
         "Message builders produce valid typed messages with minimal boilerplate",
         "Package compiles as agenttest (or similar) to avoid testing package conflict"
       ],
-      "passing": false,
-      "implementation_notes": "",
+      "passing": true,
+      "implementation_notes": "Created agenttest package with MockTransport (implements agent.Transporter, replays pre-loaded message sequences via wire-format JSON), message builders (NewTextMessage, NewToolUseMessage, NewResultMessage), and assertion helpers (AssertTextContent, AssertToolUse, AssertResult, MustNewMockTransport). Commit: ad90dc0",
       "github_item_id": null,
-      "prerequisites": ["CASG-0006"],
+      "prerequisites": [
+        "CASG-0006"
+      ],
       "parallel_group": null,
       "priority": 6
     },
@@ -44,10 +48,12 @@
         "Each example demonstrates a distinct SDK capability",
         "Examples include comments explaining the pattern being demonstrated"
       ],
-      "passing": false,
-      "implementation_notes": "",
+      "passing": true,
+      "implementation_notes": "Created three examples: examples/basic-query (single-turn Query with message streaming), examples/multi-turn (Client session resumption across prompts), examples/custom-tools (in-process MCP Tool implementation via mcp.NewMCPServer). Also updated go.mod to 1.23 (required for iter.Seq2). All compile with go build ./examples/... and go test ./... passes. Commit: d548fe7",
       "github_item_id": null,
-      "prerequisites": ["CASG-0011"],
+      "prerequisites": [
+        "CASG-0011"
+      ],
       "parallel_group": null,
       "priority": 7
     },
@@ -69,10 +75,12 @@
         "README quickstart compiles as written",
         "git tag v0.0.1 exists and go module is fetchable at that version"
       ],
-      "passing": false,
-      "implementation_notes": "Versioning: v0.0.1 signals initial development. Bump minor for new features, patch for fixes. No v1.0.0 until API is stable.",
+      "passing": true,
+      "implementation_notes": "Added MIT LICENSE, CONTRIBUTING.md, .github/workflows/ci.yml (Go 1.23+ matrix, build/test/vet), and README.md with badges, install, quickstart, and examples table. Tagged v0.0.1. go vet ./... passes clean. Commit: 445d33f",
       "github_item_id": null,
-      "prerequisites": ["CASG-0012"],
+      "prerequisites": [
+        "CASG-0012"
+      ],
       "parallel_group": null,
       "priority": 7
     }
