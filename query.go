@@ -341,6 +341,17 @@ func sendInitializeRequest(tr Transporter, o *Options) error {
 		Hooks:   json.RawMessage("null"),
 	}
 
+	if o.Hooks != nil {
+		events := o.Hooks.RegisteredEvents()
+		if len(events) > 0 {
+			hooksJSON, err := json.Marshal(events)
+			if err != nil {
+				return fmt.Errorf("marshal hooks: %w", err)
+			}
+			payload.Hooks = hooksJSON
+		}
+	}
+
 	if o.Agents != nil {
 		payload.Agents = o.Agents
 	}

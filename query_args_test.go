@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"slices"
 	"testing"
+
+	"github.com/johnayoung/claude-agent-sdk-go/hooks"
 )
 
 func TestBuildQueryArgs_InputFormat(t *testing.T) {
@@ -304,6 +306,85 @@ func TestSendInitializeRequest(t *testing.T) {
 	skills := req["skills"].([]any)
 	if len(skills) != 2 || skills[0] != "search" {
 		t.Fatalf("unexpected skills: %v", skills)
+	}
+}
+
+func TestSendInitializeRequest_HooksIncluded(t *testing.T) {
+	h := hooks.New()
+	h.OnPreToolUse("Bash", func(_ context.Context, _ *hooks.PreToolUseInput) (*hooks.PreToolUseOutput, error) {
+		return &hooks.PreToolUseOutput{}, nil
+	})
+	h.OnPostToolUse("*", func(_ context.Context, _ *hooks.PostToolUseInput) (*hooks.PostToolUseOutput, error) {
+		return &hooks.PostToolUseOutput{}, nil
+	})
+	h.OnStop(func(_ context.Context, _ *hooks.StopInput) (*hooks.StopOutput, error) {
+		return &hooks.StopOutput{}, nil
+	})
+
+	o := NewOptions([]Option{WithHooks(h)})
+
+	var sent []byte
+	tr := &mockTransport{sendFn: func(data []byte) error {
+		sent = data
+		return nil
+	}}
+	if err := sendInitializeRequest(tr, o); err != nil {
+		t.Fatal(err)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(sent, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	req := envelope["request"].(map[string]any)
+	hooksData, ok := req["hooks"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected hooks to be a map, got %T: %v", req["hooks"], req["hooks"])
+	}
+
+	preToolUse, ok := hooksData["PreToolUse"].([]any)
+	if !ok || len(preToolUse) != 1 {
+		t.Fatalf("expected 1 PreToolUse matcher, got %v", hooksData["PreToolUse"])
+	}
+	matcher := preToolUse[0].(map[string]any)
+	if matcher["matcher"] != "Bash" {
+		t.Errorf("expected matcher=Bash, got %v", matcher["matcher"])
+	}
+	callbackIds, ok := matcher["hookCallbackIds"].([]any)
+	if !ok || len(callbackIds) == 0 {
+		t.Fatalf("expected hookCallbackIds, got %v", matcher["hookCallbackIds"])
+	}
+
+	postToolUse, ok := hooksData["PostToolUse"].([]any)
+	if !ok || len(postToolUse) != 1 {
+		t.Fatalf("expected 1 PostToolUse matcher, got %v", hooksData["PostToolUse"])
+	}
+
+	stop, ok := hooksData["Stop"].([]any)
+	if !ok || len(stop) != 1 {
+		t.Fatalf("expected 1 Stop matcher, got %v", hooksData["Stop"])
+	}
+}
+
+func TestSendInitializeRequest_NoHooksWhenNil(t *testing.T) {
+	o := NewOptions(nil)
+
+	var sent []byte
+	tr := &mockTransport{sendFn: func(data []byte) error {
+		sent = data
+		return nil
+	}}
+	if err := sendInitializeRequest(tr, o); err != nil {
+		t.Fatal(err)
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(sent, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	req := envelope["request"].(map[string]any)
+	if req["hooks"] != nil {
+		t.Errorf("expected hooks=null when no hooks registered, got %v", req["hooks"])
 	}
 }
 

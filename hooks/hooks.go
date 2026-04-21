@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"context"
+	"fmt"
 	"path"
 )
 
@@ -352,11 +353,11 @@ type HookJSONOutput struct {
 	AsyncTimeout       int            `json:"asyncTimeout,omitempty"`
 }
 
-// HookMatcher pairs a pattern with callbacks and a timeout.
+// HookMatcher pairs a pattern with callback IDs and a timeout.
 type HookMatcher struct {
-	Matcher string   `json:"matcher"`
-	Hooks   []any    `json:"hooks"`
-	Timeout *float64 `json:"timeout,omitempty"`
+	Matcher          string   `json:"matcher"`
+	HookCallbackIds  []string `json:"hookCallbackIds"`
+	Timeout          *float64 `json:"timeout,omitempty"`
 }
 
 // Handler function types — one per event.
@@ -419,53 +420,63 @@ func New() *Hooks {
 	return &Hooks{}
 }
 
-func sdkMatcher(pattern string) HookMatcher {
-	return HookMatcher{Matcher: pattern, Hooks: []any{}}
-}
-
 // RegisteredEvents returns event entries suitable for the initialize request.
-// Each entry maps an event name to its matchers (patterns).
+// Each entry maps an event name to its matchers with generated callback IDs.
 func (h *Hooks) RegisteredEvents() map[string][]HookMatcher {
 	events := make(map[string][]HookMatcher)
+	var nextID int
+
+	genID := func() string {
+		nextID++
+		return fmt.Sprintf("hook_%d", nextID)
+	}
 
 	for _, e := range h.preToolUse {
-		events["PreToolUse"] = append(events["PreToolUse"], sdkMatcher(e.pattern))
+		events["PreToolUse"] = append(events["PreToolUse"], HookMatcher{
+			Matcher: e.pattern, HookCallbackIds: []string{genID()},
+		})
 	}
 	for _, e := range h.postToolUse {
-		events["PostToolUse"] = append(events["PostToolUse"], sdkMatcher(e.pattern))
+		events["PostToolUse"] = append(events["PostToolUse"], HookMatcher{
+			Matcher: e.pattern, HookCallbackIds: []string{genID()},
+		})
 	}
 	for _, e := range h.postToolUseFailure {
-		events["PostToolUseFailure"] = append(events["PostToolUseFailure"], sdkMatcher(e.pattern))
+		events["PostToolUseFailure"] = append(events["PostToolUseFailure"], HookMatcher{
+			Matcher: e.pattern, HookCallbackIds: []string{genID()},
+		})
 	}
 	if len(h.modelResponse) > 0 {
-		events["ModelResponse"] = []HookMatcher{sdkMatcher("")}
+		events["ModelResponse"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	if len(h.notificationArrived) > 0 {
-		events["NotificationArrived"] = []HookMatcher{sdkMatcher("")}
+		events["NotificationArrived"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	if len(h.stop) > 0 {
-		events["Stop"] = []HookMatcher{sdkMatcher("")}
+		events["Stop"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	if len(h.subagentStarted) > 0 {
-		events["SubagentStarted"] = []HookMatcher{sdkMatcher("")}
+		events["SubagentStarted"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	if len(h.subagentStopped) > 0 {
-		events["SubagentStopped"] = []HookMatcher{sdkMatcher("")}
+		events["SubagentStopped"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	if len(h.sessionStarted) > 0 {
-		events["SessionStarted"] = []HookMatcher{sdkMatcher("")}
+		events["SessionStarted"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	if len(h.sessionStopped) > 0 {
-		events["SessionStopped"] = []HookMatcher{sdkMatcher("")}
+		events["SessionStopped"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	if len(h.userPromptSubmit) > 0 {
-		events["UserPromptSubmit"] = []HookMatcher{sdkMatcher("")}
+		events["UserPromptSubmit"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 	for _, e := range h.permissionRequest {
-		events["PermissionRequest"] = append(events["PermissionRequest"], sdkMatcher(e.pattern))
+		events["PermissionRequest"] = append(events["PermissionRequest"], HookMatcher{
+			Matcher: e.pattern, HookCallbackIds: []string{genID()},
+		})
 	}
 	if len(h.preCompact) > 0 {
-		events["PreCompact"] = []HookMatcher{sdkMatcher("")}
+		events["PreCompact"] = []HookMatcher{{HookCallbackIds: []string{genID()}}}
 	}
 
 	return events

@@ -162,7 +162,7 @@ func TestE2E_DynamicControl_Interrupt(t *testing.T) {
 // --- 3. Hook Events ---
 
 func TestE2E_HookEvents_PreToolUse(t *testing.T) {
-	t.Skip("CLI does not yet dispatch hook_callback control requests to SDK")
+	// Removed skip: hooks are now sent in the initialize request
 	skipIfNoCLI(t)
 	ctx, cancel := e2eContext(t)
 	defer cancel()
@@ -196,7 +196,7 @@ func TestE2E_HookEvents_PreToolUse(t *testing.T) {
 }
 
 func TestE2E_HookEvents_PostToolUse(t *testing.T) {
-	t.Skip("CLI does not yet dispatch hook_callback control requests to SDK")
+	// Removed skip: hooks are now sent in the initialize request
 	skipIfNoCLI(t)
 	ctx, cancel := e2eContext(t)
 	defer cancel()
@@ -232,7 +232,7 @@ func TestE2E_HookEvents_PostToolUse(t *testing.T) {
 // --- 4. Hooks Control ---
 
 func TestE2E_HooksControl_PreToolUseDeny(t *testing.T) {
-	t.Skip("CLI does not yet dispatch hook_callback control requests to SDK")
+	// Removed skip: hooks are now sent in the initialize request
 	skipIfNoCLI(t)
 	ctx, cancel := e2eContext(t)
 	defer cancel()
