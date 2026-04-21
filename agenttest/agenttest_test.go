@@ -22,6 +22,13 @@ func TestMockTransport_ReplayMessages(t *testing.T) {
 	}
 	defer tr.Close()
 
+	// First line is the auto-prepended init response
+	initLine, err := tr.Receive()
+	agenttest.AssertNoError(t, err)
+	if initLine == nil {
+		t.Fatal("expected non-nil init line")
+	}
+
 	line1, err := tr.Receive()
 	agenttest.AssertNoError(t, err)
 	if line1 == nil {
@@ -124,6 +131,7 @@ func TestMockTransport_RoundTrip(t *testing.T) {
 	_ = tr.Start(context.Background())
 	defer tr.Close()
 
+	_, _ = tr.Receive() // init response
 	line1, _ := tr.Receive()
 	line2, _ := tr.Receive()
 

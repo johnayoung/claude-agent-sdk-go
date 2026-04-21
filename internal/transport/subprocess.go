@@ -38,12 +38,20 @@ func WithEnv(env map[string]string) Option {
 	}
 }
 
+// WithStderrCallback sets a function that receives each line from the subprocess stderr.
+func WithStderrCallback(fn func(string)) Option {
+	return func(t *SubprocessTransport) {
+		t.stderrFn = fn
+	}
+}
+
 // SubprocessTransport manages a Claude CLI subprocess via stdin/stdout JSON lines.
 type SubprocessTransport struct {
 	cliPath    string
 	workingDir string
 	env        map[string]string
 	args       []string
+	stderrFn   func(string)
 
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
@@ -97,6 +105,19 @@ func (t *SubprocessTransport) Start(ctx context.Context) error {
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, scannerBufSize), scannerBufSize)
 	t.stdout = scanner
+
+	if t.stderrFn != nil {
+		stderr, err := t.cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
+		go func() {
+			s := bufio.NewScanner(stderr)
+			for s.Scan() {
+				t.stderrFn(s.Text())
+			}
+		}()
+	}
 
 	return t.cmd.Start()
 }

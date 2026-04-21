@@ -54,6 +54,9 @@ func (c *Client) RewindFiles(ctx context.Context, userMessageID string) error {
 		if env := buildEnv(c.opts); len(env) > 0 {
 			trOpts = append(trOpts, transport.WithEnv(env))
 		}
+		if c.opts.Stderr != nil {
+			trOpts = append(trOpts, transport.WithStderrCallback(c.opts.Stderr))
+		}
 		tr = transport.New(args, trOpts...)
 	}
 

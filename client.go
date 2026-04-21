@@ -73,13 +73,16 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 		if c.opts.Transport != nil {
 			tr = c.opts.Transport
 		} else {
-			args := buildClientArgs(prompt, c.opts, sessionID)
+			args := buildClientArgs(c.opts, sessionID)
 			trOpts := []transport.Option{transport.WithCLIPath(c.opts.CLIPath)}
 			if c.opts.WorkingDir != "" {
 				trOpts = append(trOpts, transport.WithWorkingDir(c.opts.WorkingDir))
 			}
 			if env := buildEnv(c.opts); len(env) > 0 {
 				trOpts = append(trOpts, transport.WithEnv(env))
+			}
+			if c.opts.Stderr != nil {
+				trOpts = append(trOpts, transport.WithStderrCallback(c.opts.Stderr))
 			}
 			tr = transport.New(args, trOpts...)
 		}
@@ -91,6 +94,16 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 		defer tr.Close()
 
 		if err := sendInitializeRequest(tr, c.opts); err != nil {
+			yield(nil, err)
+			return
+		}
+
+		if err := waitForInitResponse(tr, qCtx); err != nil {
+			yield(nil, err)
+			return
+		}
+
+		if err := sendUserPrompt(tr, prompt); err != nil {
 			yield(nil, err)
 			return
 		}
@@ -117,6 +130,10 @@ func (c *Client) Query(ctx context.Context, prompt string) iter.Seq2[Message, er
 			}
 
 			if msg == nil {
+				continue
+			}
+
+			if _, ok := msg.(*controlResponseMessage); ok {
 				continue
 			}
 
@@ -200,11 +217,11 @@ func (c *Client) Close() error {
 	return nil
 }
 
-func buildClientArgs(prompt string, o *Options, sessionID string) []string {
-	// Client's tracked sessionID overrides the option-level SessionID for resume
+func buildClientArgs(o *Options, sessionID string) []string {
 	effective := *o
 	if sessionID != "" {
 		effective.SessionID = sessionID
+		effective.ContinueConversation = true
 	}
-	return buildQueryArgs(prompt, &effective)
+	return buildSDKArgs(&effective)
 }

@@ -86,8 +86,9 @@ func TestRewindFiles_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Establish session
+	// Establish session — init response + result
 	rewindTr.receiveLines = [][]byte{
+		initJSON,
 		[]byte(`{"type":"result","subtype":"success","result":"","duration_ms":1,"duration_api_ms":1,"is_error":false,"session_id":"sess-abc","num_turns":0}`),
 	}
 	for _, err := range client2.Query(context.Background(), "setup") {
@@ -97,9 +98,8 @@ func TestRewindFiles_Success(t *testing.T) {
 	}
 
 	// Now set up for rewind: transport returns a success control_response
-	rewindTr.receiveLines = [][]byte{
-		[]byte(`{"type":"control_response","response":{"subtype":"success","request_id":"WILL_BE_MATCHED"}}`),
-	}
+	rewindTr.receiveLines = [][]byte{}
+	rewindTr.receiveIdx = 0
 	rewindTr.matchRequestID = true
 
 	err = client2.RewindFiles(context.Background(), "user-msg-456")
@@ -139,8 +139,9 @@ func TestRewindFiles_ErrorResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Establish session
+	// Establish session — init response + result
 	rewindTr.receiveLines = [][]byte{
+		initJSON,
 		[]byte(`{"type":"result","subtype":"success","result":"","duration_ms":1,"duration_api_ms":1,"is_error":false,"session_id":"sess-xyz","num_turns":0}`),
 	}
 	for _, err := range client.Query(context.Background(), "setup") {
@@ -150,9 +151,8 @@ func TestRewindFiles_ErrorResponse(t *testing.T) {
 	}
 
 	// Set up error response for rewind
-	rewindTr.receiveLines = [][]byte{
-		[]byte(`{"type":"control_response","response":{"subtype":"error","request_id":"WILL_BE_MATCHED","error":"checkpoint not found"}}`),
-	}
+	rewindTr.receiveLines = [][]byte{}
+	rewindTr.receiveIdx = 0
 
 	err = client.RewindFiles(context.Background(), "nonexistent-msg")
 	if err == nil {
@@ -189,25 +189,27 @@ func TestControlRequest_RewindFiles_FromCLI(t *testing.T) {
 		}
 	}
 
-	// Verify success response was sent back
+	// Verify success response was sent back for the rewind request
 	sent := tr.Sent()
-	if len(sent) < 2 {
-		t.Fatalf("expected at least 2 sent messages, got %d", len(sent))
+	var foundRewindResp bool
+	for _, line := range sent {
+		var resp map[string]any
+		if json.Unmarshal(line, &resp) != nil {
+			continue
+		}
+		if resp["type"] != "control_response" {
+			continue
+		}
+		respBody, _ := resp["response"].(map[string]any)
+		if respBody["request_id"] == "req-rw" {
+			foundRewindResp = true
+			if respBody["subtype"] != "success" {
+				t.Errorf("expected success, got: %v", respBody["subtype"])
+			}
+		}
 	}
-
-	var resp map[string]any
-	if err := json.Unmarshal(sent[1], &resp); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-	if resp["type"] != "control_response" {
-		t.Errorf("unexpected type: %v", resp["type"])
-	}
-	respBody, _ := resp["response"].(map[string]any)
-	if respBody["subtype"] != "success" {
-		t.Errorf("expected success, got: %v", respBody["subtype"])
-	}
-	if respBody["request_id"] != "req-rw" {
-		t.Errorf("unexpected request_id: %v", respBody["request_id"])
+	if !foundRewindResp {
+		t.Fatal("no control_response for req-rw found in sent messages")
 	}
 }
 

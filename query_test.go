@@ -38,9 +38,10 @@ func (t *seqTransport) Receive() ([]byte, error) {
 
 // ctxTransport blocks Receive() until the context from Start() is cancelled.
 type ctxTransport struct {
-	ctx    context.Context
-	closed bool
-	mu     sync.Mutex
+	ctx      context.Context
+	closed   bool
+	sentInit bool
+	mu       sync.Mutex
 }
 
 func (t *ctxTransport) Start(ctx context.Context) error {
@@ -55,11 +56,21 @@ func (t *ctxTransport) Close() error {
 	return nil
 }
 func (t *ctxTransport) Receive() ([]byte, error) {
+	t.mu.Lock()
+	si := t.sentInit
+	t.mu.Unlock()
+	if !si {
+		t.mu.Lock()
+		t.sentInit = true
+		t.mu.Unlock()
+		return initJSON, nil
+	}
 	<-t.ctx.Done()
 	return nil, io.EOF
 }
 
 var (
+	initJSON      = []byte(`{"type":"control_response","response":{"subtype":"success","request_id":"req_1_00000001","response":{}}}`)
 	assistantJSON = []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"Hello!"}],"model":"claude-opus-4-5"}}`)
 	systemJSON    = []byte(`{"type":"system","subtype":"init"}`)
 	userJSON      = []byte(`{"type":"user","message":{"content":[{"type":"text","text":"Hi"}]}}`)
@@ -67,7 +78,7 @@ var (
 )
 
 func TestQuery_YieldsMessages(t *testing.T) {
-	tr := &seqTransport{lines: [][]byte{assistantJSON, resultJSON}}
+	tr := &seqTransport{lines: [][]byte{initJSON, assistantJSON, resultJSON}}
 	var msgs []claude.Message
 	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {
@@ -87,7 +98,7 @@ func TestQuery_YieldsMessages(t *testing.T) {
 }
 
 func TestQuery_AllMessageTypes(t *testing.T) {
-	tr := &seqTransport{lines: [][]byte{systemJSON, assistantJSON, userJSON, resultJSON}}
+	tr := &seqTransport{lines: [][]byte{initJSON, systemJSON, assistantJSON, userJSON, resultJSON}}
 	var msgs []claude.Message
 	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {
@@ -113,7 +124,7 @@ func TestQuery_AllMessageTypes(t *testing.T) {
 }
 
 func TestQuery_EarlyBreakCleansUpTransport(t *testing.T) {
-	tr := &seqTransport{lines: [][]byte{assistantJSON, assistantJSON, resultJSON}}
+	tr := &seqTransport{lines: [][]byte{initJSON, assistantJSON, assistantJSON, resultJSON}}
 	count := 0
 	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {
@@ -165,7 +176,7 @@ func TestQuery_ContextCancellationPropagates(t *testing.T) {
 }
 
 func TestQuery_ResultMessageTerminatesStream(t *testing.T) {
-	tr := &seqTransport{lines: [][]byte{resultJSON, assistantJSON}}
+	tr := &seqTransport{lines: [][]byte{initJSON, resultJSON, assistantJSON}}
 	var msgs []claude.Message
 	for msg, err := range claude.Query(context.Background(), "hello", claude.WithTransport(tr)) {
 		if err != nil {

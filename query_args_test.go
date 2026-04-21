@@ -281,12 +281,22 @@ func TestSendInitializeRequest(t *testing.T) {
 	if err := sendInitializeRequest(tr, o); err != nil {
 		t.Fatal(err)
 	}
-	var req map[string]any
-	if err := json.Unmarshal(sent, &req); err != nil {
+	var envelope map[string]any
+	if err := json.Unmarshal(sent, &envelope); err != nil {
 		t.Fatal(err)
 	}
-	if req["type"] != "initialize" {
-		t.Fatalf("expected type=initialize, got %v", req["type"])
+	if envelope["type"] != "control_request" {
+		t.Fatalf("expected type=control_request, got %v", envelope["type"])
+	}
+	if envelope["request_id"] == nil || envelope["request_id"] == "" {
+		t.Fatal("expected non-empty request_id")
+	}
+	req, ok := envelope["request"].(map[string]any)
+	if !ok {
+		t.Fatal("expected request to be a map")
+	}
+	if req["subtype"] != "initialize" {
+		t.Fatalf("expected subtype=initialize, got %v", req["subtype"])
 	}
 	if req["excludeDynamicSections"] != true {
 		t.Fatalf("expected excludeDynamicSections=true, got %v", req["excludeDynamicSections"])

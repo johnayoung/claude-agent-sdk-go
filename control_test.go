@@ -11,6 +11,23 @@ import (
 	"github.com/johnayoung/claude-agent-sdk-go/permission"
 )
 
+func findSentControlResponse(sent [][]byte, requestID string) map[string]any {
+	for _, line := range sent {
+		var msg map[string]any
+		if json.Unmarshal(line, &msg) != nil {
+			continue
+		}
+		if msg["type"] != "control_response" {
+			continue
+		}
+		respBody, _ := msg["response"].(map[string]any)
+		if respBody["request_id"] == requestID {
+			return msg
+		}
+	}
+	return nil
+}
+
 func TestControlRequest_PermissionAllow(t *testing.T) {
 	controlReq := `{"type":"control_request","request_id":"req-1","request":{"subtype":"can_use_tool","tool_name":"bash","input":{"command":"rm -rf /"},"permission_suggestions":null,"blocked_path":null,"tool_use_id":"toolu_01"}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
@@ -59,24 +76,13 @@ func TestControlRequest_PermissionAllow(t *testing.T) {
 		t.Fatalf("expected *ResultMessage, got %T", messages[0])
 	}
 
-	sent := tr.Sent()
-	if len(sent) < 2 {
-		t.Fatalf("expected at least 2 sent messages (initialize + control_response), got %d", len(sent))
-	}
-
-	var resp map[string]any
-	if err := json.Unmarshal(sent[1], &resp); err != nil {
-		t.Fatalf("failed to unmarshal control response: %v", err)
-	}
-	if resp["type"] != "control_response" {
-		t.Errorf("unexpected response type: %v", resp["type"])
+	resp := findSentControlResponse(tr.Sent(), "req-1")
+	if resp == nil {
+		t.Fatal("no control_response for req-1 found")
 	}
 	respBody, _ := resp["response"].(map[string]any)
 	if respBody["subtype"] != "success" {
 		t.Errorf("unexpected response subtype: %v", respBody["subtype"])
-	}
-	if respBody["request_id"] != "req-1" {
-		t.Errorf("unexpected request_id: %v", respBody["request_id"])
 	}
 }
 
@@ -103,14 +109,9 @@ func TestControlRequest_PermissionDeny(t *testing.T) {
 		_ = msg
 	}
 
-	sent := tr.Sent()
-	if len(sent) < 2 {
-		t.Fatalf("expected at least 2 sent messages, got %d", len(sent))
-	}
-
-	var resp map[string]any
-	if err := json.Unmarshal(sent[1], &resp); err != nil {
-		t.Fatalf("failed to unmarshal control response: %v", err)
+	resp := findSentControlResponse(tr.Sent(), "req-2")
+	if resp == nil {
+		t.Fatal("no control_response for req-2 found")
 	}
 	respBody, _ := resp["response"].(map[string]any)
 	innerResp, _ := respBody["response"].(map[string]any)
@@ -140,14 +141,9 @@ func TestControlRequest_DefaultAllow_NilCanUseTool(t *testing.T) {
 		_ = msg
 	}
 
-	sent := tr.Sent()
-	if len(sent) < 2 {
-		t.Fatalf("expected at least 2 sent messages, got %d", len(sent))
-	}
-
-	var resp map[string]any
-	if err := json.Unmarshal(sent[1], &resp); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
+	resp := findSentControlResponse(tr.Sent(), "req-3")
+	if resp == nil {
+		t.Fatal("no control_response for req-3 found")
 	}
 	respBody, _ := resp["response"].(map[string]any)
 	innerResp, _ := respBody["response"].(map[string]any)
@@ -171,17 +167,9 @@ func TestControlRequest_Interrupt(t *testing.T) {
 		}
 	}
 
-	sent := tr.Sent()
-	if len(sent) < 2 {
-		t.Fatalf("expected at least 2 sent messages, got %d", len(sent))
-	}
-
-	var resp map[string]any
-	if err := json.Unmarshal(sent[1], &resp); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-	if resp["type"] != "control_response" {
-		t.Errorf("unexpected type: %v", resp["type"])
+	resp := findSentControlResponse(tr.Sent(), "req-int")
+	if resp == nil {
+		t.Fatal("no control_response for req-int found")
 	}
 }
 

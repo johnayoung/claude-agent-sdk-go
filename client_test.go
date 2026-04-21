@@ -50,11 +50,12 @@ func (t *multiTransport) Receive() ([]byte, error) {
 // readyTransport blocks in Receive() until the context from Start() is cancelled,
 // and signals via Started when Start() is first called.
 type readyTransport struct {
-	Started chan struct{}
-	ctx     context.Context
-	once    sync.Once
-	mu      sync.Mutex
-	closed  bool
+	Started  chan struct{}
+	ctx      context.Context
+	once     sync.Once
+	mu       sync.Mutex
+	closed   bool
+	sentInit bool
 }
 
 func newReadyTransport() *readyTransport {
@@ -74,6 +75,15 @@ func (t *readyTransport) Close() error {
 	return nil
 }
 func (t *readyTransport) Receive() ([]byte, error) {
+	t.mu.Lock()
+	sentInit := t.sentInit
+	t.mu.Unlock()
+	if !sentInit {
+		t.mu.Lock()
+		t.sentInit = true
+		t.mu.Unlock()
+		return initJSON, nil
+	}
 	<-t.ctx.Done()
 	return nil, io.EOF
 }
@@ -81,8 +91,8 @@ func (t *readyTransport) Receive() ([]byte, error) {
 func TestClient_SequentialQueries(t *testing.T) {
 	tr := &multiTransport{
 		batches: [][][]byte{
-			{assistantJSON, result1JSON},
-			{assistantJSON, result2JSON},
+			{initJSON, assistantJSON, result1JSON},
+			{initJSON, assistantJSON, result2JSON},
 		},
 	}
 
@@ -170,7 +180,7 @@ func TestClient_CloseTerminatesTransport(t *testing.T) {
 }
 
 func TestClient_WorksWithCustomTransport(t *testing.T) {
-	tr := &seqTransport{lines: [][]byte{assistantJSON, resultJSON}}
+	tr := &seqTransport{lines: [][]byte{initJSON, assistantJSON, resultJSON}}
 	ctx := context.Background()
 	client, err := claude.NewClient(ctx, claude.WithTransport(tr))
 	if err != nil {
@@ -194,7 +204,7 @@ func TestClient_WorksWithCustomTransport(t *testing.T) {
 }
 
 func TestClient_ClosedClientReturnsError(t *testing.T) {
-	tr := &seqTransport{lines: [][]byte{resultJSON}}
+	tr := &seqTransport{lines: [][]byte{initJSON, resultJSON}}
 	ctx := context.Background()
 	client, err := claude.NewClient(ctx, claude.WithTransport(tr))
 	if err != nil {

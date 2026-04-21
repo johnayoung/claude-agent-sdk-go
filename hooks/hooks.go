@@ -341,9 +341,9 @@ type HookJSONOutput struct {
 
 // HookMatcher pairs a pattern with callbacks and a timeout.
 type HookMatcher struct {
-	Matcher string
-	Hooks   []any
-	Timeout *float64
+	Matcher string   `json:"matcher"`
+	Hooks   []any    `json:"hooks"`
+	Timeout *float64 `json:"timeout,omitempty"`
 }
 
 // Handler function types — one per event.
@@ -404,6 +404,58 @@ type Hooks struct {
 // New returns an empty Hooks registry.
 func New() *Hooks {
 	return &Hooks{}
+}
+
+func sdkMatcher(pattern string) HookMatcher {
+	return HookMatcher{Matcher: pattern, Hooks: []any{}}
+}
+
+// RegisteredEvents returns event entries suitable for the initialize request.
+// Each entry maps an event name to its matchers (patterns).
+func (h *Hooks) RegisteredEvents() map[string][]HookMatcher {
+	events := make(map[string][]HookMatcher)
+
+	for _, e := range h.preToolUse {
+		events["PreToolUse"] = append(events["PreToolUse"], sdkMatcher(e.pattern))
+	}
+	for _, e := range h.postToolUse {
+		events["PostToolUse"] = append(events["PostToolUse"], sdkMatcher(e.pattern))
+	}
+	for _, e := range h.postToolUseFailure {
+		events["PostToolUseFailure"] = append(events["PostToolUseFailure"], sdkMatcher(e.pattern))
+	}
+	if len(h.modelResponse) > 0 {
+		events["ModelResponse"] = []HookMatcher{sdkMatcher("")}
+	}
+	if len(h.notificationArrived) > 0 {
+		events["NotificationArrived"] = []HookMatcher{sdkMatcher("")}
+	}
+	if len(h.stop) > 0 {
+		events["Stop"] = []HookMatcher{sdkMatcher("")}
+	}
+	if len(h.subagentStarted) > 0 {
+		events["SubagentStarted"] = []HookMatcher{sdkMatcher("")}
+	}
+	if len(h.subagentStopped) > 0 {
+		events["SubagentStopped"] = []HookMatcher{sdkMatcher("")}
+	}
+	if len(h.sessionStarted) > 0 {
+		events["SessionStarted"] = []HookMatcher{sdkMatcher("")}
+	}
+	if len(h.sessionStopped) > 0 {
+		events["SessionStopped"] = []HookMatcher{sdkMatcher("")}
+	}
+	if len(h.userPromptSubmit) > 0 {
+		events["UserPromptSubmit"] = []HookMatcher{sdkMatcher("")}
+	}
+	for _, e := range h.permissionRequest {
+		events["PermissionRequest"] = append(events["PermissionRequest"], sdkMatcher(e.pattern))
+	}
+	if len(h.preCompact) > 0 {
+		events["PreCompact"] = []HookMatcher{sdkMatcher("")}
+	}
+
+	return events
 }
 
 // OnPreToolUse registers a handler for tool calls whose name matches pattern (glob syntax).

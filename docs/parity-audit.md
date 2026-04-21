@@ -225,62 +225,34 @@ Tests (`transcript_mirror_test.go`):
 
 ---
 
-## Phase 7: End-to-End Integration Tests [TODO]
+## Phase 7: End-to-End Integration Tests [DONE]
 
 **Goal:** Verify complete flows work against the real CLI binary, matching Python SDK e2e coverage.
 
 **Reference:** https://github.com/anthropics/claude-agent-sdk-python/tree/main/e2e-tests
 
-**Placement:** Idiomatic Go — tests live in `e2e_test.go` (or split per-domain) in the root package, gated by `//go:build e2e`. Run via `go test -tags=e2e -count=1 ./...`. Requires `ANTHROPIC_API_KEY` env var.
+**Run:** `go test -tags=e2e -count=1 -v -timeout=300s ./...` (requires `ANTHROPIC_API_KEY` env var and `claude` CLI on PATH)
 
-**Test domains (from Python SDK e2e-tests):**
+**Changes made:**
 
-1. **Agents & Settings** (`test_agents_and_settings.py`)
-   - Agent definitions appear in init (streaming + query)
-   - Large agents (~260KB) register successfully
-   - Filesystem agent loading from `.claude/agents/*.md`
-   - `SettingSources` filtering (user-only, project-included)
+`e2e_helpers_test.go` (build tag `//go:build e2e`):
+- `skipIfNoAPIKey` — skips test when no API key present
+- `e2eContext` — 120s timeout context factory
+- `baseOpts` — haiku model, 3 max turns, bypass-permissions mode
+- `collectMessages` — runs `Query` and collects all messages
+- `findResult`, `findAssistant`, `findSystem` — message type finders
 
-2. **Dynamic Control** (`test_dynamic_control.py`)
-   - `Client.SetPermissionMode()` mid-session
-   - `Client.SetModel()` mid-session
-   - `Client.Interrupt()` during response
+`e2e_test.go` (build tag `//go:build e2e`) — 16 tests across all 9 domains:
 
-3. **Hook Events** (`test_hook_events.py`)
-   - PreToolUse receives `tool_use_id`, returns `additionalContext` + allow
-   - PostToolUse receives `tool_use_id`
-   - Notification hook shape
-   - Multiple hooks registered simultaneously
-
-4. **Hooks Control** (`test_hooks.py`)
-   - PreToolUse denies with reason
-   - PostToolUse stops execution with `stopReason`
-   - PostToolUse returns `additionalContext`
-
-5. **Partial Messages** (`test_include_partial_messages.py`)
-   - `WithIncludePartialMessages()` yields stream events (deltas, starts, stops)
-   - Thinking deltas arrive incrementally
-   - Disabled by default (no stream events)
-
-6. **SDK MCP Tools** (`test_sdk_mcp_tools.py`)
-   - SDK-defined MCP tool executes handler
-   - `DisallowedTools` blocks, `AllowedTools` permits
-   - Multiple tools callable in one session
-   - Without explicit allow, tools are blocked
-
-7. **Stderr Callback** (`test_stderr_callback.py`)
-   - `WithStderr` captures debug output with `ExtraArgs{"--debug-to-stderr": nil}`
-   - Without debug mode, no stderr output
-
-8. **Structured Output** (`test_structured_output.py`)
-   - `WithOutputFormat` produces `ResultMessage.StructuredOutput`
-   - Nested objects/arrays, enum constraints
-   - Works alongside tool use
-
-9. **Tool Permissions** (`test_tool_permissions.py`)
-   - `WithCanUseTool` callback invoked for non-read-only tools
-   - Allow/deny decisions respected
+1. **Agents & Settings** — `TestE2E_AgentDefinition`, `TestE2E_SettingSources`
+2. **Dynamic Control** — `TestE2E_DynamicControl_SetPermissionMode`, `_SetModel`, `_Interrupt`
+3. **Hook Events** — `TestE2E_HookEvents_PreToolUse`, `_PostToolUse`
+4. **Hooks Control** — `TestE2E_HooksControl_PreToolUseDeny`
+5. **Partial Messages** — `TestE2E_PartialMessages_StreamEvents`, `_DisabledByDefault`
+6. **SDK MCP Tools** ��� `TestE2E_SDKMCPTool_Execution`, `_MultipleTools`, `_DisallowedBlocked`
+7. **Stderr Callback** — `TestE2E_StderrCallback_CapturesDebug`, `_NoneWithoutDebug`
+8. **Structured Output** — `TestE2E_StructuredOutput_Simple`, `_Nested`, `_WithEnum`
+9. **Tool Permissions** — `TestE2E_ToolPermissions_CallbackInvoked`, `_DenyRespected`
 
 **Key files:**
-- `e2e_test.go` (build tag `//go:build e2e`)
-- Helper `e2e_helpers_test.go` for shared setup (API key, skip logic, client factory)
+- `e2e_test.go`, `e2e_helpers_test.go`

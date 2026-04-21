@@ -28,13 +28,16 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 				yield(nil, &CLINotFoundError{SearchPath: os.Getenv("PATH")})
 				return
 			}
-			args := buildQueryArgs(prompt, o)
+			args := buildSDKArgs(o)
 			trOpts := []transport.Option{transport.WithCLIPath(o.CLIPath)}
 			if o.WorkingDir != "" {
 				trOpts = append(trOpts, transport.WithWorkingDir(o.WorkingDir))
 			}
 			if env := buildEnv(o); len(env) > 0 {
 				trOpts = append(trOpts, transport.WithEnv(env))
+			}
+			if o.Stderr != nil {
+				trOpts = append(trOpts, transport.WithStderrCallback(o.Stderr))
 			}
 			tr = transport.New(args, trOpts...)
 		}
@@ -49,6 +52,16 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 		defer tr.Close()
 
 		if err := sendInitializeRequest(tr, o); err != nil {
+			yield(nil, err)
+			return
+		}
+
+		if err := waitForInitResponse(tr, qCtx); err != nil {
+			yield(nil, err)
+			return
+		}
+
+		if err := sendUserPrompt(tr, prompt); err != nil {
 			yield(nil, err)
 			return
 		}
@@ -75,6 +88,10 @@ func Query(ctx context.Context, prompt string, opts ...Option) iter.Seq2[Message
 			}
 
 			if msg == nil {
+				continue
+			}
+
+			if _, ok := msg.(*controlResponseMessage); ok {
 				continue
 			}
 
@@ -116,6 +133,19 @@ func buildQueryArgs(prompt string, o *Options) []string {
 		"--input-format", "stream-json",
 		"--verbose",
 	}
+	return appendCommonArgs(args, o)
+}
+
+func buildSDKArgs(o *Options) []string {
+	args := []string{
+		"--output-format", "stream-json",
+		"--input-format", "stream-json",
+		"--verbose",
+	}
+	return appendCommonArgs(args, o)
+}
+
+func appendCommonArgs(args []string, o *Options) []string {
 	if o.Model != "" {
 		args = append(args, "--model", o.Model)
 	}
@@ -174,7 +204,9 @@ func buildQueryArgs(prompt string, o *Options) []string {
 	if o.PermissionMode != "" && o.PermissionMode != PermissionModeDefault {
 		args = append(args, "--permission-mode", string(o.PermissionMode))
 	}
-	if o.PermissionPromptTool != "" {
+	if o.CanUseTool != nil && o.PermissionPromptTool == "" {
+		args = append(args, "--permission-prompt-tool", "stdio")
+	} else if o.PermissionPromptTool != "" {
 		args = append(args, "--permission-prompt-tool", o.PermissionPromptTool)
 	}
 	if o.ToolsPreset != "" {
@@ -273,28 +305,97 @@ func buildEnv(o *Options) map[string]string {
 	return env
 }
 
-type initializeRequest struct {
-	Type                   string                     `json:"type"`
-	Hooks                  json.RawMessage            `json:"hooks,omitempty"`
+type initializePayload struct {
+	Subtype                string                     `json:"subtype"`
+	Hooks                  json.RawMessage            `json:"hooks"`
 	Agents                 map[string]AgentDefinition `json:"agents,omitempty"`
 	ExcludeDynamicSections *bool                      `json:"excludeDynamicSections,omitempty"`
 	Skills                 []string                   `json:"skills,omitempty"`
 }
 
+type controlRequestEnvelope struct {
+	Type      string `json:"type"`
+	RequestID string `json:"request_id"`
+	Request   any    `json:"request"`
+}
+
+var requestCounter uint64
+
+func nextRequestID() string {
+	requestCounter++
+	return fmt.Sprintf("req_%d_%08x", requestCounter, requestCounter)
+}
+
 func sendInitializeRequest(tr Transporter, o *Options) error {
-	req := initializeRequest{Type: "initialize"}
+	payload := initializePayload{
+		Subtype: "initialize",
+		Hooks:   json.RawMessage("null"),
+	}
 
 	if o.Agents != nil {
-		req.Agents = o.Agents
+		payload.Agents = o.Agents
 	}
 	if o.ExcludeDynamicSections != nil {
-		req.ExcludeDynamicSections = o.ExcludeDynamicSections
+		payload.ExcludeDynamicSections = o.ExcludeDynamicSections
 	}
 	if len(o.Skills) > 0 && o.Skills[0] != "all" {
-		req.Skills = o.Skills
+		payload.Skills = o.Skills
 	}
 
-	data, err := json.Marshal(req)
+	envelope := controlRequestEnvelope{
+		Type:      "control_request",
+		RequestID: nextRequestID(),
+		Request:   payload,
+	}
+
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return err
+	}
+	return tr.Send(data)
+}
+
+type userPromptMessage struct {
+	Type            string         `json:"type"`
+	SessionID       string         `json:"session_id"`
+	Message         userMsgContent `json:"message"`
+	ParentToolUseID *string        `json:"parent_tool_use_id"`
+}
+
+type userMsgContent struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+func waitForInitResponse(tr Transporter, ctx context.Context) error {
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		line, err := tr.Receive()
+		if err != nil {
+			if err == io.EOF {
+				return fmt.Errorf("CLI exited before sending initialize response")
+			}
+			return err
+		}
+		msg, parseErr := parseLine(line)
+		if parseErr != nil {
+			continue
+		}
+		if _, ok := msg.(*controlResponseMessage); ok {
+			return nil
+		}
+	}
+}
+
+func sendUserPrompt(tr Transporter, prompt string) error {
+	msg := userPromptMessage{
+		Type:      "user",
+		SessionID: "",
+		Message:   userMsgContent{Role: "user", Content: prompt},
+	}
+	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}

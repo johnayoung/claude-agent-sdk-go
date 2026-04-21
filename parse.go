@@ -41,6 +41,8 @@ func parseLine(line []byte) (Message, error) {
 		return parseTranscriptMirror(line)
 	case "control_request":
 		return parseControlRequest(line)
+	case "control_response":
+		return parseControlResponse(line)
 	default:
 		// Forward compatibility: skip unknown types
 		return nil, nil
@@ -261,6 +263,22 @@ func parseControlRequest(line []byte) (Message, error) {
 	var msg ControlRequestMessage
 	if err := json.Unmarshal(line, &msg); err != nil {
 		return nil, &MessageParseError{TypeField: "control_request", RawJSON: string(line), Err: err}
+	}
+	return &msg, nil
+}
+
+// controlResponseMessage is an internal type for CLI responses to SDK control requests.
+// It is NOT yielded to callers — the query loop intercepts it.
+type controlResponseMessage struct {
+	Response json.RawMessage `json:"response"`
+}
+
+func (m *controlResponseMessage) MessageType() string { return "control_response" }
+
+func parseControlResponse(line []byte) (Message, error) {
+	var msg controlResponseMessage
+	if err := json.Unmarshal(line, &msg); err != nil {
+		return nil, &MessageParseError{TypeField: "control_response", RawJSON: string(line), Err: err}
 	}
 	return &msg, nil
 }

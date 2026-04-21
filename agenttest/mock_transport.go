@@ -12,8 +12,11 @@ import (
 	claude "github.com/johnayoung/claude-agent-sdk-go"
 )
 
+var initResponseLine = []byte(`{"type":"control_response","response":{"subtype":"success","request_id":"req_1_00000001","response":{}}}`)
+
 // MockTransport replays a fixed sequence of messages as JSON lines.
 // It implements claude.Transporter and is safe for single-goroutine use.
+// An init control_response is automatically prepended so the SDK handshake succeeds.
 type MockTransport struct {
 	lines [][]byte
 	idx   int
@@ -24,7 +27,8 @@ type MockTransport struct {
 // NewMockTransport creates a MockTransport that replays the given messages in order.
 // Returns an error if any message cannot be serialized to the wire format.
 func NewMockTransport(messages ...claude.Message) (*MockTransport, error) {
-	lines := make([][]byte, 0, len(messages))
+	lines := make([][]byte, 0, 1+len(messages))
+	lines = append(lines, initResponseLine)
 	for _, msg := range messages {
 		line, err := marshalMessage(msg)
 		if err != nil {
@@ -77,10 +81,12 @@ func (m *MockTransport) Sent() [][]byte {
 }
 
 // NewMockTransportFromLines creates a MockTransport that replays raw JSON lines.
+// An init control_response is automatically prepended.
 func NewMockTransportFromLines(lines ...[]byte) *MockTransport {
-	cp := make([][]byte, len(lines))
-	for i, l := range lines {
-		cp[i] = append([]byte(nil), l...)
+	cp := make([][]byte, 0, 1+len(lines))
+	cp = append(cp, initResponseLine)
+	for _, l := range lines {
+		cp = append(cp, append([]byte(nil), l...))
 	}
 	return &MockTransport{lines: cp}
 }
