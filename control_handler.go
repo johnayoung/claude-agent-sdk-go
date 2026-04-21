@@ -49,7 +49,7 @@ func handlePermissionRequest(ctx context.Context, tr Transporter, o *Options, ms
 	}
 
 	if o.CanUseTool == nil {
-		resp := permissionAllowResponse{Behavior: "allow"}
+		resp := permissionAllowResponse{Behavior: "allow", UpdatedInput: req.Input}
 		return sendControlSuccess(tr, msg.RequestID, resp)
 	}
 
@@ -76,9 +76,13 @@ func handlePermissionRequest(ctx context.Context, tr Transporter, o *Options, ms
 	}
 
 	if decision.Allowed() {
-		resp := permissionAllowResponse{Behavior: "allow"}
-		if decision.UpdatedInput() != nil {
-			resp.UpdatedInput = decision.UpdatedInput()
+		updatedInput := decision.UpdatedInput()
+		if updatedInput == nil {
+			updatedInput = req.Input
+		}
+		resp := permissionAllowResponse{
+			Behavior:     "allow",
+			UpdatedInput: updatedInput,
 		}
 		if decision.UpdatedPermissions() != nil {
 			resp.UpdatedPermissions = decision.UpdatedPermissions()

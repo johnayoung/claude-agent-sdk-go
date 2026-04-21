@@ -109,8 +109,8 @@ type SDKControlResponse struct {
 
 type permissionAllowResponse struct {
 	Behavior           string `json:"behavior"`
-	UpdatedInput       any    `json:"updated_input,omitempty"`
-	UpdatedPermissions any    `json:"updated_permissions,omitempty"`
+	UpdatedInput       any    `json:"updatedInput"`
+	UpdatedPermissions any    `json:"updatedPermissions,omitempty"`
 }
 
 type permissionDenyResponse struct {

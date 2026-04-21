@@ -83,26 +83,36 @@ func (blockedTool) Run(_ context.Context, _ map[string]any) (json.RawMessage, er
 	return json.Marshal("this should never execute")
 }
 
+// toolBaseName extracts the short tool name from an MCP-prefixed name.
+// MCP tools arrive as "mcp__<server>__<tool>"; built-in tools are bare names.
+func toolBaseName(name string) string {
+	if i := strings.LastIndex(name, "__"); i >= 0 {
+		return name[i+2:]
+	}
+	return name
+}
+
 func permissionCallback(toolName string, input map[string]any, ctx permission.ToolContext) (permission.Decision, error) {
+	baseName := toolBaseName(toolName)
 	inputJSON, _ := json.Marshal(input)
 	fmt.Printf("\n[permission] Tool: %s | Input: %s\n", toolName, string(inputJSON))
 
 	// Auto-allow read-only / safe tools
 	safeTools := map[string]bool{"Read": true, "Glob": true, "Grep": true}
-	if safeTools[toolName] {
+	if safeTools[baseName] {
 		fmt.Printf("[permission] ALLOW (safe tool)\n")
 		return permission.Allow("read-only tool"), nil
 	}
 
 	// Deny a blocklisted tool
-	if toolName == "delete_everything" {
+	if baseName == "delete_everything" {
 		fmt.Printf("[permission] DENY (blocklisted)\n")
 		return permission.Deny("tool is blocklisted for safety"), nil
 	}
 
 	// Modify input: when to_upper is called, append " (modified by permission callback)"
 	// to the text input to demonstrate AllowWithUpdates
-	if toolName == "to_upper" {
+	if baseName == "to_upper" {
 		text, _ := input["text"].(string)
 		modified := map[string]any{"text": text + " (modified by permission callback)"}
 		fmt.Printf("[permission] ALLOW with modified input: %v\n", modified)
