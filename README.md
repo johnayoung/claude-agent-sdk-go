@@ -161,6 +161,10 @@ This SDK targets feature parity with [`claude-agent-sdk-python`](https://github.
 | External MCP servers | `WithMCPServers()` for stdio, SSE, and HTTP servers | Y | Y | TODO |
 | Tool allowlist | `WithAllowedTools()` pre-approves specific tools | Y | Y | TODO |
 | Tool blocklist | `WithDisallowedTools()` blocks specific tools | Y | Y | TODO |
+| MCP reconnect | `Client.ReconnectMCPServer()` reconnects a named server | Y | Y | [streaming-mode](examples/streaming-mode/) |
+| MCP toggle | `Client.ToggleMCPServer()` enables/disables a server | Y | Y | [streaming-mode](examples/streaming-mode/) |
+| MCP status | `Client.GetMCPStatus()` queries all server connection states | Y | Y | [streaming-mode](examples/streaming-mode/) |
+| Server tool blocks | Parse `ServerToolUseBlock` and `ServerToolResultBlock` from MCP invocations | Y | Y | [streaming-mode](examples/streaming-mode/) |
 | `@tool` decorator | Python decorator for defining tools from functions | N/A | Y | -- |
 
 ### Permissions
@@ -224,6 +228,14 @@ This SDK targets feature parity with [`claude-agent-sdk-python`](https://github.
 | Redis store adapter | Production adapter for Redis | -- | Y | -- |
 | PostgreSQL store adapter | Production adapter for PostgreSQL | -- | Y | -- |
 | Conformance test suite | Validates store implementations against behavioral contracts | -- | Y | -- |
+
+### Runtime control
+
+| Feature | Description | Go | Python | Example |
+| --- | --- | --- | --- | --- |
+| Context usage | `Client.GetContextUsage()` returns token breakdown | Y | Y | [streaming-mode](examples/streaming-mode/) |
+| Server info | `Client.GetServerInfo()` returns CLI server metadata | Y | Y | TODO |
+| Stop task | `Client.StopTask()` stops a running background task | Y | Y | TODO |
 
 ### File checkpointing
 
@@ -292,9 +304,20 @@ The streaming iterator yields these `Message` types:
 
 | Type | When |
 | --- | --- |
-| `*AssistantMessage` | Claude's response text and tool calls |
+| `*AssistantMessage` | Claude's response text, tool calls, and server tool invocations |
 | `*UserMessage` | Echoed user input and tool results |
 | `*ResultMessage` | Final message with session ID, cost, and token usage |
+
+Content blocks within messages:
+
+| Block type | Description |
+| --- | --- |
+| `*TextBlock` | Text content |
+| `*ThinkingBlock` | Extended thinking content |
+| `*ToolUseBlock` | Tool invocation request |
+| `*ToolResultBlock` | Tool execution result |
+| `*ServerToolUseBlock` | MCP server tool invocation |
+| `*ServerToolResultBlock` | MCP server tool result |
 
 Extract text from an `AssistantMessage`:
 
@@ -326,7 +349,7 @@ if m, ok := msg.(*claude.AssistantMessage); ok {
 | [multi-turn](examples/multi-turn/) | Conversation with session resumption |
 | [custom-tools](examples/custom-tools/) | In-process MCP tools |
 | [agents](examples/agents/) | Sub-agent definitions |
-| [streaming-mode](examples/streaming-mode/) | Multiple streaming patterns (interrupt, error handling, options) |
+| [streaming-mode](examples/streaming-mode/) | Streaming patterns, MCP status, context usage, server tool blocks |
 
 Run any example:
 
