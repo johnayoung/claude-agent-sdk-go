@@ -39,3 +39,20 @@ type ToolResultBlock struct {
 }
 
 func (b *ToolResultBlock) BlockType() string { return "tool_result" }
+
+type ServerToolUseBlock struct {
+	Type  string          `json:"type"`
+	ID    string          `json:"id"`
+	Name  string          `json:"name"`
+	Input json.RawMessage `json:"input"`
+}
+
+func (b *ServerToolUseBlock) BlockType() string { return "server_tool_use" }
+
+type ServerToolResultBlock struct {
+	Type      string          `json:"type"`
+	ToolUseID string          `json:"tool_use_id"`
+	Content   json.RawMessage `json:"content"`
+}
+
+func (b *ServerToolResultBlock) BlockType() string { return "server_tool_result" }

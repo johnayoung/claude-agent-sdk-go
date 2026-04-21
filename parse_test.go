@@ -394,3 +394,77 @@ func TestParseLine_ControlRequest_Interrupt(t *testing.T) {
 		t.Errorf("unexpected request_id: %q", cr.RequestID)
 	}
 }
+
+func TestParseLine_ServerToolUseBlock(t *testing.T) {
+	line := []byte(`{"type":"assistant","message":{"content":[{"type":"server_tool_use","id":"stu_01","name":"mcp__server__tool","input":{"key":"value"}}],"model":"claude-opus-4-5"}}`)
+	msg, err := parseLine(line)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := msg.(*AssistantMessage)
+	if len(m.Content) != 1 {
+		t.Fatalf("expected 1 content block, got %d", len(m.Content))
+	}
+	stu, ok := m.Content[0].(*ServerToolUseBlock)
+	if !ok {
+		t.Fatalf("expected *ServerToolUseBlock, got %T", m.Content[0])
+	}
+	if stu.BlockType() != "server_tool_use" {
+		t.Errorf("unexpected BlockType: %q", stu.BlockType())
+	}
+	if stu.ID != "stu_01" {
+		t.Errorf("unexpected ID: %q", stu.ID)
+	}
+	if stu.Name != "mcp__server__tool" {
+		t.Errorf("unexpected Name: %q", stu.Name)
+	}
+	if string(stu.Input) != `{"key":"value"}` {
+		t.Errorf("unexpected Input: %s", stu.Input)
+	}
+}
+
+func TestParseLine_ServerToolResultBlock(t *testing.T) {
+	line := []byte(`{"type":"assistant","message":{"content":[{"type":"server_tool_result","tool_use_id":"stu_01","content":[{"type":"text","text":"result data"}]}],"model":"claude-opus-4-5"}}`)
+	msg, err := parseLine(line)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := msg.(*AssistantMessage)
+	if len(m.Content) != 1 {
+		t.Fatalf("expected 1 content block, got %d", len(m.Content))
+	}
+	str, ok := m.Content[0].(*ServerToolResultBlock)
+	if !ok {
+		t.Fatalf("expected *ServerToolResultBlock, got %T", m.Content[0])
+	}
+	if str.BlockType() != "server_tool_result" {
+		t.Errorf("unexpected BlockType: %q", str.BlockType())
+	}
+	if str.ToolUseID != "stu_01" {
+		t.Errorf("unexpected ToolUseID: %q", str.ToolUseID)
+	}
+	if str.Content == nil {
+		t.Fatal("expected non-nil content")
+	}
+}
+
+func TestParseLine_ServerToolBlocks_WithOtherBlocks(t *testing.T) {
+	line := []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"hi"},{"type":"server_tool_use","id":"stu_02","name":"tool","input":{}},{"type":"server_tool_result","tool_use_id":"stu_02","content":"ok"},{"type":"future_unknown","x":1}],"model":"claude-opus-4-5"}}`)
+	msg, err := parseLine(line)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := msg.(*AssistantMessage)
+	if len(m.Content) != 3 {
+		t.Fatalf("expected 3 content blocks (unknown skipped), got %d", len(m.Content))
+	}
+	if m.Content[0].BlockType() != "text" {
+		t.Errorf("expected text block, got %q", m.Content[0].BlockType())
+	}
+	if m.Content[1].BlockType() != "server_tool_use" {
+		t.Errorf("expected server_tool_use block, got %q", m.Content[1].BlockType())
+	}
+	if m.Content[2].BlockType() != "server_tool_result" {
+		t.Errorf("expected server_tool_result block, got %q", m.Content[2].BlockType())
+	}
+}

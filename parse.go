@@ -318,6 +318,21 @@ func parseContentBlocksFromSlice(raw []any) ([]ContentBlock, error) {
 				isError = &ie
 			}
 			blocks = append(blocks, &ToolResultBlock{Type: "tool_result", ToolUseID: toolUseID, Content: content, IsError: isError})
+		case "server_tool_use":
+			id, _ := blockMap["id"].(string)
+			name, _ := blockMap["name"].(string)
+			var input json.RawMessage
+			if inp, ok := blockMap["input"]; ok {
+				input, _ = json.Marshal(inp)
+			}
+			blocks = append(blocks, &ServerToolUseBlock{Type: "server_tool_use", ID: id, Name: name, Input: input})
+		case "server_tool_result":
+			toolUseID, _ := blockMap["tool_use_id"].(string)
+			var content json.RawMessage
+			if c, ok := blockMap["content"]; ok && c != nil {
+				content, _ = json.Marshal(c)
+			}
+			blocks = append(blocks, &ServerToolResultBlock{Type: "server_tool_result", ToolUseID: toolUseID, Content: content})
 		}
 	}
 	return blocks, nil
