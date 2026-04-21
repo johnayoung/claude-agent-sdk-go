@@ -171,10 +171,10 @@ This SDK targets feature parity with [`claude-agent-sdk-python`](https://github.
 
 | Feature | Description | Go | Python | Example |
 | --- | --- | --- | --- | --- |
-| Permission modes | `WithPermissionMode()` -- Default, AcceptEdits, Plan, BypassPermissions, DontAsk, Auto | Y | Y | TODO |
-| Permission callback | `WithCanUseTool(fn)` for custom approval logic | Y | Y | TODO |
-| Allow / Deny decisions | `ResultAllow`, `ResultDeny`, `AllowWithUpdates` | Y | Y | TODO |
-| Input modification | Modify tool inputs before execution via permission callback | Y | Y | TODO |
+| Permission modes | `WithPermissionMode()` -- Default, AcceptEdits, Plan, BypassPermissions, DontAsk, Auto | Y | Y | [tool-permission-callback](examples/tool-permission-callback/) |
+| Permission callback | `WithCanUseTool(fn)` for custom approval logic | Y | Y | [tool-permission-callback](examples/tool-permission-callback/) |
+| Allow / Deny decisions | `ResultAllow`, `ResultDeny`, `AllowWithUpdates` | Y | Y | [tool-permission-callback](examples/tool-permission-callback/) |
+| Input modification | Modify tool inputs before execution via permission callback | Y | Y | [tool-permission-callback](examples/tool-permission-callback/) |
 
 ### Hooks & lifecycle
 
@@ -351,6 +351,7 @@ if m, ok := msg.(*claude.AssistantMessage); ok {
 | [agents](examples/agents/) | Sub-agent definitions |
 | [hooks](examples/hooks/) | Lifecycle hooks: PreToolUse, PostToolUse, UserPromptSubmit, pattern matching |
 | [streaming-mode](examples/streaming-mode/) | Streaming patterns, MCP status, context usage, server tool blocks |
+| [tool-permission-callback](examples/tool-permission-callback/) | Permission callbacks: allow, deny, and input modification |
 
 Run any example:
 
