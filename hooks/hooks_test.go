@@ -179,6 +179,141 @@ func TestDispatchError_PropagatesError(t *testing.T) {
 	}
 }
 
+func TestDispatchPreToolUse_PermissionDecision(t *testing.T) {
+	h := hooks.New()
+	h.OnPreToolUse("*", func(_ context.Context, _ *hooks.PreToolUseInput) (*hooks.PreToolUseOutput, error) {
+		return &hooks.PreToolUseOutput{
+			Block:              true,
+			PermissionDecision: "allow",
+			Reason:             "explicitly allowed",
+		}, nil
+	})
+
+	out, err := h.DispatchPreToolUse(context.Background(), &hooks.PreToolUseInput{ToolName: "Bash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.PermissionDecision != "allow" {
+		t.Fatalf("expected PermissionDecision=allow, got %q", out.PermissionDecision)
+	}
+	if out.Block {
+		t.Fatal("PermissionDecision should take precedence; Block should not be set on merged output")
+	}
+}
+
+func TestDispatchPreToolUse_AdditionalContext(t *testing.T) {
+	h := hooks.New()
+	h.OnPreToolUse("*", func(_ context.Context, _ *hooks.PreToolUseInput) (*hooks.PreToolUseOutput, error) {
+		return &hooks.PreToolUseOutput{
+			AdditionalContext: "extra context",
+			SystemMessage:     "system msg",
+		}, nil
+	})
+
+	out, err := h.DispatchPreToolUse(context.Background(), &hooks.PreToolUseInput{ToolName: "Bash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.AdditionalContext != "extra context" {
+		t.Fatalf("unexpected AdditionalContext: %q", out.AdditionalContext)
+	}
+	if out.SystemMessage != "system msg" {
+		t.Fatalf("unexpected SystemMessage: %q", out.SystemMessage)
+	}
+}
+
+func TestDispatchPostToolUse_ContinueAndStopReason(t *testing.T) {
+	h := hooks.New()
+	f := false
+	h.OnPostToolUse("*", func(_ context.Context, _ *hooks.PostToolUseInput) (*hooks.PostToolUseOutput, error) {
+		return &hooks.PostToolUseOutput{
+			Continue:          &f,
+			StopReason:        "critical error",
+			Reason:            "tool failed",
+			AdditionalContext: "check logs",
+			SystemMessage:     "execution halted",
+		}, nil
+	})
+
+	out, err := h.DispatchPostToolUse(context.Background(), &hooks.PostToolUseInput{ToolName: "Bash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Continue == nil || *out.Continue != false {
+		t.Fatal("expected Continue=false")
+	}
+	if out.StopReason != "critical error" {
+		t.Fatalf("unexpected StopReason: %q", out.StopReason)
+	}
+	if out.AdditionalContext != "check logs" {
+		t.Fatalf("unexpected AdditionalContext: %q", out.AdditionalContext)
+	}
+	if out.SystemMessage != "execution halted" {
+		t.Fatalf("unexpected SystemMessage: %q", out.SystemMessage)
+	}
+}
+
+func TestDispatchPostToolUse_MergeMultipleHandlers(t *testing.T) {
+	h := hooks.New()
+	f := false
+	h.OnPostToolUse("*", func(_ context.Context, _ *hooks.PostToolUseInput) (*hooks.PostToolUseOutput, error) {
+		return &hooks.PostToolUseOutput{
+			SuppressOutput:    true,
+			AdditionalContext: "first",
+		}, nil
+	})
+	h.OnPostToolUse("*", func(_ context.Context, _ *hooks.PostToolUseInput) (*hooks.PostToolUseOutput, error) {
+		return &hooks.PostToolUseOutput{
+			Continue:          &f,
+			StopReason:        "halt",
+			AdditionalContext: "second",
+		}, nil
+	})
+
+	out, err := h.DispatchPostToolUse(context.Background(), &hooks.PostToolUseInput{ToolName: "Bash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.SuppressOutput {
+		t.Fatal("expected SuppressOutput=true from first handler")
+	}
+	if out.Continue == nil || *out.Continue != false {
+		t.Fatal("expected Continue=false from second handler")
+	}
+	if out.StopReason != "halt" {
+		t.Fatalf("expected StopReason=halt, got %q", out.StopReason)
+	}
+	if out.AdditionalContext != "second" {
+		t.Fatalf("expected last-wins AdditionalContext=second, got %q", out.AdditionalContext)
+	}
+}
+
+func TestDispatchPostToolUseFailure_ContinueAndStopReason(t *testing.T) {
+	h := hooks.New()
+	f := false
+	h.OnPostToolUseFailure("*", func(_ context.Context, _ *hooks.PostToolUseFailureInput) (*hooks.PostToolUseFailureOutput, error) {
+		return &hooks.PostToolUseFailureOutput{
+			Continue:          &f,
+			StopReason:        "fatal",
+			AdditionalContext: "retry later",
+		}, nil
+	})
+
+	out, err := h.DispatchPostToolUseFailure(context.Background(), &hooks.PostToolUseFailureInput{ToolName: "Bash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Continue == nil || *out.Continue != false {
+		t.Fatal("expected Continue=false")
+	}
+	if out.StopReason != "fatal" {
+		t.Fatalf("unexpected StopReason: %q", out.StopReason)
+	}
+	if out.AdditionalContext != "retry later" {
+		t.Fatalf("unexpected AdditionalContext: %q", out.AdditionalContext)
+	}
+}
+
 func TestAllDispatchMethods_NoHandlers(t *testing.T) {
 	h := hooks.New()
 	ctx := context.Background()

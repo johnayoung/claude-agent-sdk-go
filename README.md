@@ -180,11 +180,11 @@ This SDK targets feature parity with [`claude-agent-sdk-python`](https://github.
 
 | Feature | Description | Go | Python | Example |
 | --- | --- | --- | --- | --- |
-| PreToolUse | Run logic before tool execution; can block or modify input | Y | Y | TODO |
-| PostToolUse | Run logic after successful tool execution | Y | Y | TODO |
+| PreToolUse | Run logic before tool execution; can block or modify input | Y | Y | [hooks](examples/hooks/) |
+| PostToolUse | Run logic after successful tool execution | Y | Y | [hooks](examples/hooks/) |
 | PostToolUseFailure | Handle tool execution errors | Y | Y | TODO |
 | ModelResponse | Intercept model text responses | Y | Y | TODO |
-| UserPromptSubmit | Intercept/modify user prompts before sending | Y | Y | TODO |
+| UserPromptSubmit | Intercept/modify user prompts before sending | Y | Y | [hooks](examples/hooks/) |
 | Stop | Custom stop logic with reason | Y | Y | TODO |
 | SessionStarted / Stopped | Session lifecycle events | Y | Y | TODO |
 | SubagentStarted / Stopped | Sub-agent lifecycle events | Y | Y | TODO |
@@ -192,7 +192,7 @@ This SDK targets feature parity with [`claude-agent-sdk-python`](https://github.
 | PermissionRequest | Custom permission decision handling | Y | Y | TODO |
 | PreCompact | Intercept before message compaction | Y | Y | TODO |
 | Error | Global error handler | Y | Y | TODO |
-| Pattern matching | Glob patterns to target specific tools in hooks | Y | Y | TODO |
+| Pattern matching | Glob patterns to target specific tools in hooks | Y | Y | [hooks](examples/hooks/) |
 
 ### Agents
 
@@ -349,6 +349,7 @@ if m, ok := msg.(*claude.AssistantMessage); ok {
 | [multi-turn](examples/multi-turn/) | Conversation with session resumption |
 | [custom-tools](examples/custom-tools/) | In-process MCP tools |
 | [agents](examples/agents/) | Sub-agent definitions |
+| [hooks](examples/hooks/) | Lifecycle hooks: PreToolUse, PostToolUse, UserPromptSubmit, pattern matching |
 | [streaming-mode](examples/streaming-mode/) | Streaming patterns, MCP status, context usage, server tool blocks |
 
 Run any example:

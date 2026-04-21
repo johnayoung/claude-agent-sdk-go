@@ -125,7 +125,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, preToolUseEnvelope(out))
 
 	case "post_tool_use":
 		toolName, _ := inputMap["tool_name"].(string)
@@ -142,7 +142,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, postToolUseEnvelope(out))
 
 	case "post_tool_use_failure":
 		toolName, _ := inputMap["tool_name"].(string)
@@ -159,23 +159,23 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, postToolUseFailureEnvelope(out))
 
 	case "model_response":
 		response, _ := inputMap["response"].(string)
-		out, err := o.Hooks.DispatchModelResponse(ctx, &hooks.ModelResponseInput{
+		_, err := o.Hooks.DispatchModelResponse(ctx, &hooks.ModelResponseInput{
 			Response:  response,
 			SessionID: sessionID,
 		})
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
 	case "notification_arrived":
 		title, _ := inputMap["title"].(string)
 		message, _ := inputMap["message"].(string)
-		out, err := o.Hooks.DispatchNotificationArrived(ctx, &hooks.NotificationArrivedInput{
+		_, err := o.Hooks.DispatchNotificationArrived(ctx, &hooks.NotificationArrivedInput{
 			Title:     title,
 			Message:   message,
 			SessionID: sessionID,
@@ -183,7 +183,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
 	case "stop":
 		reason, _ := inputMap["reason"].(string)
@@ -194,23 +194,23 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, stopEnvelope(out))
 
 	case "subagent_started":
 		agentID, _ := inputMap["agent_id"].(string)
-		out, err := o.Hooks.DispatchSubagentStarted(ctx, &hooks.SubagentStartedInput{
+		_, err := o.Hooks.DispatchSubagentStarted(ctx, &hooks.SubagentStartedInput{
 			AgentID:   agentID,
 			SessionID: sessionID,
 		})
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
 	case "subagent_stopped":
 		agentID, _ := inputMap["agent_id"].(string)
 		result, _ := inputMap["result"].(string)
-		out, err := o.Hooks.DispatchSubagentStopped(ctx, &hooks.SubagentStoppedInput{
+		_, err := o.Hooks.DispatchSubagentStopped(ctx, &hooks.SubagentStoppedInput{
 			AgentID:   agentID,
 			SessionID: sessionID,
 			Result:    result,
@@ -218,25 +218,25 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
 	case "session_started":
-		out, err := o.Hooks.DispatchSessionStarted(ctx, &hooks.SessionStartedInput{
+		_, err := o.Hooks.DispatchSessionStarted(ctx, &hooks.SessionStartedInput{
 			SessionID: sessionID,
 		})
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
 	case "session_stopped":
-		out, err := o.Hooks.DispatchSessionStopped(ctx, &hooks.SessionStoppedInput{
+		_, err := o.Hooks.DispatchSessionStopped(ctx, &hooks.SessionStoppedInput{
 			SessionID: sessionID,
 		})
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
 	case "user_prompt_submit":
 		prompt, _ := inputMap["prompt"].(string)
@@ -247,7 +247,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, userPromptSubmitEnvelope(out))
 
 	case "permission_request":
 		toolName, _ := inputMap["tool_name"].(string)
@@ -260,7 +260,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, permissionRequestEnvelope(out))
 
 	case "pre_compact":
 		var messageCount int
@@ -274,11 +274,103 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		if err != nil {
 			return sendControlError(tr, msg.RequestID, err.Error())
 		}
-		return sendControlSuccess(tr, msg.RequestID, out)
+		return sendControlSuccess(tr, msg.RequestID, preCompactEnvelope(out))
 
 	default:
 		return sendControlSuccess(tr, msg.RequestID, nil)
 	}
+}
+
+func preToolUseEnvelope(out *hooks.PreToolUseOutput) *hooks.HookJSONOutput {
+	specific := &hooks.PreToolUseHookSpecificOutput{
+		HookEventName: "PreToolUse",
+	}
+
+	if out.PermissionDecision != "" {
+		specific.PermissionDecision = out.PermissionDecision
+		specific.PermissionDecisionReason = out.Reason
+	} else if out.Block {
+		specific.PermissionDecision = "deny"
+		specific.PermissionDecisionReason = out.Reason
+	}
+
+	if out.ToolInput != nil {
+		specific.UpdatedInput = out.ToolInput
+	}
+	specific.AdditionalContext = out.AdditionalContext
+
+	return &hooks.HookJSONOutput{
+		Reason:             out.Reason,
+		SystemMessage:      out.SystemMessage,
+		HookSpecificOutput: specific,
+	}
+}
+
+func postToolUseEnvelope(out *hooks.PostToolUseOutput) *hooks.HookJSONOutput {
+	return &hooks.HookJSONOutput{
+		SuppressOutput: out.SuppressOutput,
+		Continue:       out.Continue,
+		StopReason:     out.StopReason,
+		Reason:         out.Reason,
+		SystemMessage:  out.SystemMessage,
+		HookSpecificOutput: &hooks.PostToolUseHookSpecificOutput{
+			HookEventName:     "PostToolUse",
+			AdditionalContext:  out.AdditionalContext,
+		},
+	}
+}
+
+func postToolUseFailureEnvelope(out *hooks.PostToolUseFailureOutput) *hooks.HookJSONOutput {
+	return &hooks.HookJSONOutput{
+		SuppressOutput: out.SuppressOutput,
+		Continue:       out.Continue,
+		StopReason:     out.StopReason,
+		Reason:         out.Reason,
+		SystemMessage:  out.SystemMessage,
+		HookSpecificOutput: &hooks.PostToolUseFailureHookSpecificOutput{
+			HookEventName:     "PostToolUseFailure",
+			AdditionalContext:  out.AdditionalContext,
+		},
+	}
+}
+
+func stopEnvelope(out *hooks.StopOutput) *hooks.HookJSONOutput {
+	return &hooks.HookJSONOutput{
+		StopReason: out.StopReason,
+	}
+}
+
+func userPromptSubmitEnvelope(out *hooks.UserPromptSubmitOutput) *hooks.HookJSONOutput {
+	env := &hooks.HookJSONOutput{
+		SystemMessage: out.SystemMessage,
+		Reason:        out.Reason,
+	}
+	if out.Block {
+		f := false
+		env.Continue = &f
+	}
+	return env
+}
+
+func permissionRequestEnvelope(out *hooks.PermissionRequestOutput) *hooks.HookJSONOutput {
+	env := &hooks.HookJSONOutput{}
+	if out.Decision != "" {
+		env.HookSpecificOutput = &hooks.PermissionRequestHookSpecificOutput{
+			HookEventName: "PermissionRequest",
+			Decision:      map[string]any{"decision": out.Decision, "reason": out.Reason},
+		}
+	}
+	return env
+}
+
+func preCompactEnvelope(out *hooks.PreCompactOutput) *hooks.HookJSONOutput {
+	env := &hooks.HookJSONOutput{}
+	if out.Block {
+		f := false
+		env.Continue = &f
+		env.Reason = out.Reason
+	}
+	return env
 }
 
 func handleInterrupt(tr Transporter, msg *ControlRequestMessage, cancelFn context.CancelFunc) error {

@@ -35,9 +35,12 @@ type PreToolUseInput struct {
 // PreToolUseOutput allows modifying or blocking the tool call.
 type PreToolUseOutput struct {
 	// ToolInput overrides the input passed to the tool; nil means no change.
-	ToolInput map[string]any
-	Block     bool
-	Reason    string
+	ToolInput          map[string]any
+	Block              bool
+	Reason             string
+	PermissionDecision string // "allow", "deny", or "ask"; takes precedence over Block
+	AdditionalContext  string
+	SystemMessage      string
 }
 
 // PostToolUseInput carries context for a tool call after it executes.
@@ -51,7 +54,12 @@ type PostToolUseInput struct {
 
 // PostToolUseOutput is returned after a PostToolUse handler runs.
 type PostToolUseOutput struct {
-	SuppressOutput bool
+	SuppressOutput    bool
+	Continue          *bool  // nil=default (continue), false=stop execution
+	StopReason        string // sent when Continue is false
+	Reason            string
+	AdditionalContext string
+	SystemMessage     string
 }
 
 // PostToolUseFailureInput carries context for a tool call that produced an error.
@@ -65,7 +73,12 @@ type PostToolUseFailureInput struct {
 
 // PostToolUseFailureOutput is returned after a PostToolUseFailure handler runs.
 type PostToolUseFailureOutput struct {
-	SuppressOutput bool
+	SuppressOutput    bool
+	Continue          *bool  // nil=default (continue), false=stop execution
+	StopReason        string // sent when Continue is false
+	Reason            string
+	AdditionalContext string
+	SystemMessage     string
 }
 
 // ModelResponseInput carries a text response from the model.
@@ -544,8 +557,12 @@ func (h *Hooks) DispatchPreToolUse(ctx context.Context, input *PreToolUseInput) 
 			return nil, err
 		}
 		if out != nil {
-			if out.Block {
+			if out.PermissionDecision != "" {
+				merged.PermissionDecision = out.PermissionDecision
+			} else if out.Block {
 				merged.Block = true
+			}
+			if out.Reason != "" {
 				merged.Reason = out.Reason
 			}
 			if out.ToolInput != nil {
@@ -556,6 +573,12 @@ func (h *Hooks) DispatchPreToolUse(ctx context.Context, input *PreToolUseInput) 
 					SessionID: input.SessionID,
 				}
 			}
+			if out.AdditionalContext != "" {
+				merged.AdditionalContext = out.AdditionalContext
+			}
+			if out.SystemMessage != "" {
+				merged.SystemMessage = out.SystemMessage
+			}
 		}
 	}
 	return merged, nil
@@ -563,16 +586,38 @@ func (h *Hooks) DispatchPreToolUse(ctx context.Context, input *PreToolUseInput) 
 
 // DispatchPostToolUse runs all matching PostToolUse handlers in registration order.
 func (h *Hooks) DispatchPostToolUse(ctx context.Context, input *PostToolUseInput) (*PostToolUseOutput, error) {
+	merged := &PostToolUseOutput{}
 	for _, entry := range h.postToolUse {
 		matched, err := path.Match(entry.pattern, input.ToolName)
 		if err != nil || !matched {
 			continue
 		}
-		if _, err := entry.handler(ctx, input); err != nil {
+		out, err := entry.handler(ctx, input)
+		if err != nil {
 			return nil, err
 		}
+		if out != nil {
+			if out.SuppressOutput {
+				merged.SuppressOutput = true
+			}
+			if out.Continue != nil {
+				merged.Continue = out.Continue
+			}
+			if out.StopReason != "" {
+				merged.StopReason = out.StopReason
+			}
+			if out.Reason != "" {
+				merged.Reason = out.Reason
+			}
+			if out.AdditionalContext != "" {
+				merged.AdditionalContext = out.AdditionalContext
+			}
+			if out.SystemMessage != "" {
+				merged.SystemMessage = out.SystemMessage
+			}
+		}
 	}
-	return &PostToolUseOutput{}, nil
+	return merged, nil
 }
 
 // DispatchModelResponse runs all ModelResponse handlers in registration order.
@@ -647,16 +692,38 @@ func (h *Hooks) DispatchSessionStopped(ctx context.Context, input *SessionStoppe
 
 // DispatchPostToolUseFailure runs all matching PostToolUseFailure handlers in registration order.
 func (h *Hooks) DispatchPostToolUseFailure(ctx context.Context, input *PostToolUseFailureInput) (*PostToolUseFailureOutput, error) {
+	merged := &PostToolUseFailureOutput{}
 	for _, entry := range h.postToolUseFailure {
 		matched, err := path.Match(entry.pattern, input.ToolName)
 		if err != nil || !matched {
 			continue
 		}
-		if _, err := entry.handler(ctx, input); err != nil {
+		out, err := entry.handler(ctx, input)
+		if err != nil {
 			return nil, err
 		}
+		if out != nil {
+			if out.SuppressOutput {
+				merged.SuppressOutput = true
+			}
+			if out.Continue != nil {
+				merged.Continue = out.Continue
+			}
+			if out.StopReason != "" {
+				merged.StopReason = out.StopReason
+			}
+			if out.Reason != "" {
+				merged.Reason = out.Reason
+			}
+			if out.AdditionalContext != "" {
+				merged.AdditionalContext = out.AdditionalContext
+			}
+			if out.SystemMessage != "" {
+				merged.SystemMessage = out.SystemMessage
+			}
+		}
 	}
-	return &PostToolUseFailureOutput{}, nil
+	return merged, nil
 }
 
 // DispatchUserPromptSubmit runs all UserPromptSubmit handlers in registration order.

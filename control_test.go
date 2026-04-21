@@ -300,3 +300,164 @@ func TestControlRequest_HookCallback_PreCompact(t *testing.T) {
 		t.Errorf("unexpected message_count: %d", calledCount)
 	}
 }
+
+func TestControlRequest_HookCallback_PreToolUse_BlockWireFormat(t *testing.T) {
+	controlReq := `{"type":"control_request","request_id":"req-ptu","request":{"subtype":"hook_callback","callback_id":"cb-ptu","input":{"hook_event_name":"pre_tool_use","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"session_id":"sess-1"}}}`
+	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
+
+	tr := agenttest.NewMockTransportFromLines(
+		[]byte(controlReq),
+		[]byte(resultMsg),
+	)
+
+	h := hooks.New()
+	h.OnPreToolUse("Bash", func(_ context.Context, _ *hooks.PreToolUseInput) (*hooks.PreToolUseOutput, error) {
+		return &hooks.PreToolUseOutput{Block: true, Reason: "blocked by policy"}, nil
+	})
+
+	for _, err := range claude.Query(context.Background(), "test",
+		claude.WithTransport(tr),
+		claude.WithHooks(h),
+	) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	resp := findSentControlResponse(tr.Sent(), "req-ptu")
+	if resp == nil {
+		t.Fatal("no control_response for req-ptu found")
+	}
+	respBody, _ := resp["response"].(map[string]any)
+	inner, _ := respBody["response"].(map[string]any)
+	hso, _ := inner["hookSpecificOutput"].(map[string]any)
+	if hso["permissionDecision"] != "deny" {
+		t.Errorf("expected permissionDecision=deny, got %v", hso["permissionDecision"])
+	}
+	if hso["permissionDecisionReason"] != "blocked by policy" {
+		t.Errorf("unexpected reason: %v", hso["permissionDecisionReason"])
+	}
+}
+
+func TestControlRequest_HookCallback_PreToolUse_AllowWireFormat(t *testing.T) {
+	controlReq := `{"type":"control_request","request_id":"req-ptu-a","request":{"subtype":"hook_callback","callback_id":"cb-ptu-a","input":{"hook_event_name":"pre_tool_use","tool_name":"Read","tool_input":{},"session_id":"sess-1"}}}`
+	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
+
+	tr := agenttest.NewMockTransportFromLines(
+		[]byte(controlReq),
+		[]byte(resultMsg),
+	)
+
+	h := hooks.New()
+	h.OnPreToolUse("*", func(_ context.Context, _ *hooks.PreToolUseInput) (*hooks.PreToolUseOutput, error) {
+		return &hooks.PreToolUseOutput{
+			PermissionDecision: "allow",
+			Reason:             "read is safe",
+		}, nil
+	})
+
+	for _, err := range claude.Query(context.Background(), "test",
+		claude.WithTransport(tr),
+		claude.WithHooks(h),
+	) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	resp := findSentControlResponse(tr.Sent(), "req-ptu-a")
+	if resp == nil {
+		t.Fatal("no control_response for req-ptu-a found")
+	}
+	respBody, _ := resp["response"].(map[string]any)
+	inner, _ := respBody["response"].(map[string]any)
+	hso, _ := inner["hookSpecificOutput"].(map[string]any)
+	if hso["permissionDecision"] != "allow" {
+		t.Errorf("expected permissionDecision=allow, got %v", hso["permissionDecision"])
+	}
+}
+
+func TestControlRequest_HookCallback_PostToolUse_ContinueStopWireFormat(t *testing.T) {
+	controlReq := `{"type":"control_request","request_id":"req-post","request":{"subtype":"hook_callback","callback_id":"cb-post","input":{"hook_event_name":"post_tool_use","tool_name":"Bash","tool_input":{},"tool_response":"CRITICAL ERROR","session_id":"sess-1"}}}`
+	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
+
+	tr := agenttest.NewMockTransportFromLines(
+		[]byte(controlReq),
+		[]byte(resultMsg),
+	)
+
+	h := hooks.New()
+	h.OnPostToolUse("*", func(_ context.Context, _ *hooks.PostToolUseInput) (*hooks.PostToolUseOutput, error) {
+		f := false
+		return &hooks.PostToolUseOutput{
+			Continue:          &f,
+			StopReason:        "critical error detected",
+			AdditionalContext: "check system logs",
+			SystemMessage:     "execution halted",
+		}, nil
+	})
+
+	for _, err := range claude.Query(context.Background(), "test",
+		claude.WithTransport(tr),
+		claude.WithHooks(h),
+	) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	resp := findSentControlResponse(tr.Sent(), "req-post")
+	if resp == nil {
+		t.Fatal("no control_response for req-post found")
+	}
+	respBody, _ := resp["response"].(map[string]any)
+	inner, _ := respBody["response"].(map[string]any)
+
+	if inner["continue"] != false {
+		t.Errorf("expected continue=false, got %v", inner["continue"])
+	}
+	if inner["stopReason"] != "critical error detected" {
+		t.Errorf("unexpected stopReason: %v", inner["stopReason"])
+	}
+	if inner["systemMessage"] != "execution halted" {
+		t.Errorf("unexpected systemMessage: %v", inner["systemMessage"])
+	}
+
+	hso, _ := inner["hookSpecificOutput"].(map[string]any)
+	if hso["additionalContext"] != "check system logs" {
+		t.Errorf("unexpected additionalContext: %v", hso["additionalContext"])
+	}
+}
+
+func TestControlRequest_HookCallback_PostToolUse_EmptyOutputBackwardCompat(t *testing.T) {
+	controlReq := `{"type":"control_request","request_id":"req-post-empty","request":{"subtype":"hook_callback","callback_id":"cb-post-e","input":{"hook_event_name":"post_tool_use","tool_name":"Bash","tool_input":{},"tool_response":"ok","session_id":"sess-1"}}}`
+	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
+
+	tr := agenttest.NewMockTransportFromLines(
+		[]byte(controlReq),
+		[]byte(resultMsg),
+	)
+
+	h := hooks.New()
+	h.OnPostToolUse("*", func(_ context.Context, _ *hooks.PostToolUseInput) (*hooks.PostToolUseOutput, error) {
+		return &hooks.PostToolUseOutput{}, nil
+	})
+
+	for _, err := range claude.Query(context.Background(), "test",
+		claude.WithTransport(tr),
+		claude.WithHooks(h),
+	) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	resp := findSentControlResponse(tr.Sent(), "req-post-empty")
+	if resp == nil {
+		t.Fatal("no control_response for req-post-empty found")
+	}
+	respBody, _ := resp["response"].(map[string]any)
+	if respBody["subtype"] != "success" {
+		t.Errorf("expected success subtype, got %v", respBody["subtype"])
+	}
+}
