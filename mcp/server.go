@@ -74,9 +74,9 @@ type SDKServerConfig struct {
 func (c SDKServerConfig) ServerType() string { return "sdk" }
 
 func (c SDKServerConfig) MarshalJSON() ([]byte, error) {
-	tools := make([]toolSchema, len(c.Tools))
+	tools := make([]ToolSchema, len(c.Tools))
 	for i, t := range c.Tools {
-		tools[i] = toolSchema{
+		tools[i] = ToolSchema{
 			Name:        t.Name(),
 			Description: t.Description(),
 			InputSchema: t.InputSchema(),
@@ -85,17 +85,45 @@ func (c SDKServerConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type  string       `json:"type"`
 		Name  string       `json:"name,omitempty"`
-		Tools []toolSchema `json:"tools"`
+		Tools []ToolSchema `json:"tools"`
 	}{Type: "sdk", Name: c.Name, Tools: tools})
 }
 
-type toolSchema struct {
+// ToolSchema describes a tool's name, description, and JSON Schema input.
+type ToolSchema struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	InputSchema json.RawMessage `json:"inputSchema"`
 }
 
+// FindTool returns the Tool with the given name, or nil if not found.
+func (c *SDKServerConfig) FindTool(name string) Tool {
+	for _, t := range c.Tools {
+		if t.Name() == name {
+			return t
+		}
+	}
+	return nil
+}
+
+// ListTools returns ToolSchema entries for all registered tools.
+func (c *SDKServerConfig) ListTools() []ToolSchema {
+	schemas := make([]ToolSchema, len(c.Tools))
+	for i, t := range c.Tools {
+		schemas[i] = ToolSchema{
+			Name:        t.Name(),
+			Description: t.Description(),
+			InputSchema: t.InputSchema(),
+		}
+	}
+	return schemas
+}
+
 // NewMCPServer creates an SDKServerConfig wrapping the given Tool implementations.
-func NewMCPServer(tools ...Tool) *SDKServerConfig {
-	return &SDKServerConfig{Tools: tools}
+// The name identifies the server in the CLI MCP configuration. If empty, a default is used.
+func NewMCPServer(name string, tools ...Tool) *SDKServerConfig {
+	if name == "" {
+		name = "sdk-tools"
+	}
+	return &SDKServerConfig{Name: name, Tools: tools}
 }

@@ -43,14 +43,11 @@ func (upperTool) Run(_ context.Context, input map[string]any) (json.RawMessage, 
 func main() {
 	ctx := context.Background()
 
-	server := mcp.NewMCPServer(upperTool{})
+	server := mcp.NewMCPServer("upper-tools", upperTool{})
 
 	for msg, err := range claude.Query(ctx,
 		"Use the to_upper tool to convert 'hello world' to uppercase, then tell me the result.",
-		claude.WithMCPServers(claude.MCPServerConfig{
-			Name: server.Name,
-			Type: claude.MCPServerTypeSDK,
-		}),
+		claude.WithSDKMCPServer(server),
 	) {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)

@@ -29,7 +29,9 @@ func handleControlRequest(ctx context.Context, tr Transporter, o *Options, msg *
 		return handleSetPermissionMode(tr, o, msg)
 	case "rewind_files":
 		return handleRewindFiles(tr, msg)
-	case "mcp_message", "mcp_reconnect", "mcp_toggle", "stop_task":
+	case "mcp_message":
+		return handleMcpMessage(ctx, tr, o, msg)
+	case "mcp_reconnect", "mcp_toggle", "stop_task":
 		return sendControlSuccess(tr, msg.RequestID, nil)
 	default:
 		return sendControlSuccess(tr, msg.RequestID, nil)
@@ -313,6 +315,102 @@ func sendControlSuccess(tr Transporter, requestID string, response any) error {
 		return err
 	}
 	return tr.Send(data)
+}
+
+func handleMcpMessage(ctx context.Context, tr Transporter, o *Options, msg *ControlRequestMessage) error {
+	var req ControlMcpMessageRequest
+	if err := json.Unmarshal(msg.Request, &req); err != nil {
+		return sendControlError(tr, msg.RequestID, fmt.Sprintf("failed to parse mcp_message: %v", err))
+	}
+
+	server := o.SDKMCPServers[req.ServerName]
+	if server == nil {
+		resp := map[string]any{"mcp_response": jsonrpcError(req.Message, -32600, "unknown SDK MCP server: "+req.ServerName)}
+		return sendControlSuccess(tr, msg.RequestID, resp)
+	}
+
+	mcpMsg, ok := req.Message.(map[string]any)
+	if !ok {
+		resp := map[string]any{"mcp_response": jsonrpcError(req.Message, -32600, "invalid MCP message")}
+		return sendControlSuccess(tr, msg.RequestID, resp)
+	}
+
+	method, _ := mcpMsg["method"].(string)
+	id := mcpMsg["id"]
+	params, _ := mcpMsg["params"].(map[string]any)
+
+	var result any
+	var rpcErr *jsonrpcErrorPayload
+
+	switch method {
+	case "initialize":
+		result = map[string]any{
+			"protocolVersion": "2024-11-05",
+			"capabilities":    map[string]any{"tools": map[string]any{}},
+			"serverInfo":      map[string]any{"name": server.Name, "version": "1.0.0"},
+		}
+	case "notifications/initialized":
+		result = map[string]any{}
+	case "tools/list":
+		tools := server.ListTools()
+		toolEntries := make([]map[string]any, len(tools))
+		for i, t := range tools {
+			toolEntries[i] = map[string]any{
+				"name":        t.Name,
+				"description": t.Description,
+				"inputSchema": json.RawMessage(t.InputSchema),
+			}
+		}
+		result = map[string]any{"tools": toolEntries}
+	case "tools/call":
+		name, _ := params["name"].(string)
+		arguments, _ := params["arguments"].(map[string]any)
+		tool := server.FindTool(name)
+		if tool == nil {
+			rpcErr = &jsonrpcErrorPayload{Code: -32602, Message: "unknown tool: " + name}
+		} else {
+			output, err := tool.Run(ctx, arguments)
+			if err != nil {
+				result = map[string]any{
+					"content": []map[string]any{{"type": "text", "text": err.Error()}},
+					"isError": true,
+				}
+			} else {
+				result = map[string]any{
+					"content": []map[string]any{{"type": "text", "text": string(output)}},
+				}
+			}
+		}
+	default:
+		rpcErr = &jsonrpcErrorPayload{Code: -32601, Message: "method not found: " + method}
+	}
+
+	var mcpResponse any
+	if rpcErr != nil {
+		mcpResponse = map[string]any{"jsonrpc": "2.0", "id": id, "error": rpcErr}
+	} else {
+		mcpResponse = map[string]any{"jsonrpc": "2.0", "id": id, "result": result}
+	}
+
+	resp := map[string]any{"mcp_response": mcpResponse}
+	return sendControlSuccess(tr, msg.RequestID, resp)
+}
+
+type jsonrpcErrorPayload struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func jsonrpcError(msg any, code int, message string) map[string]any {
+	var id any
+	if m, ok := msg.(map[string]any); ok {
+		id = m["id"]
+	}
+	return map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"error":   &jsonrpcErrorPayload{Code: code, Message: message},
+	}
 }
 
 func sendControlError(tr Transporter, requestID string, errMsg string) error {

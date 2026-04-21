@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	"github.com/johnayoung/claude-agent-sdk-go/hooks"
+	"github.com/johnayoung/claude-agent-sdk-go/mcp"
 	"github.com/johnayoung/claude-agent-sdk-go/permission"
 )
 
@@ -115,7 +116,8 @@ type Options struct {
 	DisallowedTools []string
 
 	// MCP
-	MCPServers []MCPServerConfig
+	MCPServers    []MCPServerConfig
+	SDKMCPServers map[string]*mcp.SDKServerConfig
 
 	// Permissions
 	PermissionMode         PermissionMode
@@ -241,6 +243,22 @@ func WithDisallowedTools(tools ...string) Option {
 // WithMCPServers appends MCP server configurations used by the agent.
 func WithMCPServers(servers ...MCPServerConfig) Option {
 	return func(o *Options) { o.MCPServers = append(o.MCPServers, servers...) }
+}
+
+// WithSDKMCPServer registers an in-process MCP server whose tools are served
+// via the control protocol. The CLI receives a type:"sdk" entry and routes
+// MCP calls back through the SDK.
+func WithSDKMCPServer(server *mcp.SDKServerConfig) Option {
+	return func(o *Options) {
+		if o.SDKMCPServers == nil {
+			o.SDKMCPServers = make(map[string]*mcp.SDKServerConfig)
+		}
+		o.SDKMCPServers[server.Name] = server
+		o.MCPServers = append(o.MCPServers, MCPServerConfig{
+			Name: server.Name,
+			Type: MCPServerTypeSDK,
+		})
+	}
 }
 
 // WithPermissionMode sets the permission handling mode for tool execution.

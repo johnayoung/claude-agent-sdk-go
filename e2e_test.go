@@ -354,19 +354,14 @@ func (greetTool) Run(_ context.Context, input map[string]any) (json.RawMessage, 
 }
 
 func TestE2E_SDKMCPTool_Execution(t *testing.T) {
-	t.Skip("SDK MCP server hosting not yet implemented — CLI cannot connect to in-process Go MCP server")
 	skipIfNoCLI(t)
 	ctx, cancel := e2eContext(t)
 	defer cancel()
 
-	server := mcp.NewMCPServer(echoTool{})
-	server.Name = "test"
+	server := mcp.NewMCPServer("test", echoTool{})
 
 	msgs := collectMessages(t, ctx, "Call the mcp__test__echo tool with the text 'hello world'.",
-		claude.WithMCPServers(claude.MCPServerConfig{
-			Name: "test",
-			Type: claude.MCPServerTypeSDK,
-		}),
+		claude.WithSDKMCPServer(server),
 		claude.WithAllowedTools("mcp__test__echo"),
 	)
 
@@ -380,19 +375,14 @@ func TestE2E_SDKMCPTool_Execution(t *testing.T) {
 }
 
 func TestE2E_SDKMCPTool_MultipleTools(t *testing.T) {
-	t.Skip("SDK MCP server hosting not yet implemented — CLI cannot connect to in-process Go MCP server")
 	skipIfNoCLI(t)
 	ctx, cancel := e2eContext(t)
 	defer cancel()
 
-	server := mcp.NewMCPServer(echoTool{}, greetTool{})
-	server.Name = "multi"
+	server := mcp.NewMCPServer("multi", echoTool{}, greetTool{})
 
 	msgs := collectMessages(t, ctx, "Call mcp__multi__echo with text='test' and mcp__multi__greet with name='Bob'. Do these one at a time.",
-		claude.WithMCPServers(claude.MCPServerConfig{
-			Name: "multi",
-			Type: claude.MCPServerTypeSDK,
-		}),
+		claude.WithSDKMCPServer(server),
 		claude.WithAllowedTools("mcp__multi__echo", "mcp__multi__greet"),
 		claude.WithMaxTurns(5),
 	)
@@ -407,19 +397,14 @@ func TestE2E_SDKMCPTool_MultipleTools(t *testing.T) {
 }
 
 func TestE2E_SDKMCPTool_DisallowedBlocked(t *testing.T) {
-	t.Skip("SDK MCP server hosting not yet implemented — CLI cannot connect to in-process Go MCP server")
 	skipIfNoCLI(t)
 	ctx, cancel := e2eContext(t)
 	defer cancel()
 
-	server := mcp.NewMCPServer(echoTool{}, greetTool{})
-	server.Name = "test"
+	server := mcp.NewMCPServer("test", echoTool{}, greetTool{})
 
 	msgs := collectMessages(t, ctx, "Call the mcp__test__echo tool with text='should be blocked'.",
-		claude.WithMCPServers(claude.MCPServerConfig{
-			Name: "test",
-			Type: claude.MCPServerTypeSDK,
-		}),
+		claude.WithSDKMCPServer(server),
 		claude.WithAllowedTools("mcp__test__greet"),
 		claude.WithDisallowedTools("mcp__test__echo"),
 	)

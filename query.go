@@ -221,8 +221,8 @@ func appendCommonArgs(args []string, o *Options) []string {
 		args = append(args, "--disallowedTools", strings.Join(o.DisallowedTools, ","))
 	}
 	if len(o.MCPServers) > 0 {
-		mcpCfg := buildMCPConfig(o.MCPServers)
-		if data, err := json.Marshal(mcpCfg); err == nil {
+		wrapper := buildMCPConfigWrapper(o.MCPServers)
+		if data, err := json.Marshal(wrapper); err == nil {
 			args = append(args, "--mcp-config", string(data))
 		}
 	}
@@ -269,25 +269,34 @@ func appendCommonArgs(args []string, o *Options) []string {
 
 type mcpServerEntry struct {
 	Type    string            `json:"type"`
+	Name    string            `json:"name,omitempty"`
 	Command string            `json:"command,omitempty"`
 	Args    []string          `json:"args,omitempty"`
 	URL     string            `json:"url,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
 }
 
-func buildMCPConfig(servers []MCPServerConfig) map[string]mcpServerEntry {
+type mcpConfigWrapper struct {
+	MCPServers map[string]mcpServerEntry `json:"mcpServers"`
+}
+
+func buildMCPConfigWrapper(servers []MCPServerConfig) mcpConfigWrapper {
 	cfg := make(map[string]mcpServerEntry, len(servers))
 	for _, s := range servers {
 		entry := mcpServerEntry{
-			Type:    string(s.Type),
-			Command: s.Command,
-			Args:    s.Args,
-			URL:     s.URL,
-			Env:     s.Env,
+			Type: string(s.Type),
+		}
+		if s.Type == MCPServerTypeSDK {
+			entry.Name = s.Name
+		} else {
+			entry.Command = s.Command
+			entry.Args = s.Args
+			entry.URL = s.URL
+			entry.Env = s.Env
 		}
 		cfg[s.Name] = entry
 	}
-	return cfg
+	return mcpConfigWrapper{MCPServers: cfg}
 }
 
 const sdkVersion = "0.1.0"

@@ -42,7 +42,7 @@ func TestToolInterface(t *testing.T) {
 }
 
 func TestNewMCPServer(t *testing.T) {
-	srv := mcp.NewMCPServer(echoTool{})
+	srv := mcp.NewMCPServer("test", echoTool{})
 	if srv == nil {
 		t.Fatal("NewMCPServer returned nil")
 	}
@@ -52,10 +52,20 @@ func TestNewMCPServer(t *testing.T) {
 	if len(srv.Tools) != 1 {
 		t.Errorf("expected 1 tool, got %d", len(srv.Tools))
 	}
+	if srv.Name != "test" {
+		t.Errorf("expected name test, got %q", srv.Name)
+	}
+}
+
+func TestNewMCPServer_DefaultName(t *testing.T) {
+	srv := mcp.NewMCPServer("", echoTool{})
+	if srv.Name != "sdk-tools" {
+		t.Errorf("expected default name sdk-tools, got %q", srv.Name)
+	}
 }
 
 func TestSDKServerConfigMarshal(t *testing.T) {
-	srv := mcp.NewMCPServer(echoTool{})
+	srv := mcp.NewMCPServer("test-echo", echoTool{})
 	data, err := json.Marshal(srv)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
@@ -132,7 +142,7 @@ func TestServerConfigInterface(t *testing.T) {
 		mcp.StdioServerConfig{Command: "cmd"},
 		mcp.SSEServerConfig{URL: "http://host/sse"},
 		mcp.HTTPServerConfig{URL: "http://host/mcp"},
-		mcp.NewMCPServer(),
+		mcp.NewMCPServer("test"),
 	}
 	types := []string{"stdio", "sse", "http", "sdk"}
 	for i, cfg := range configs {
