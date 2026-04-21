@@ -114,7 +114,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 	sessionID, _ := inputMap["session_id"].(string)
 
 	switch hookEventName {
-	case "pre_tool_use":
+	case "PreToolUse":
 		toolName, _ := inputMap["tool_name"].(string)
 		toolInput, _ := inputMap["tool_input"].(map[string]any)
 		out, err := o.Hooks.DispatchPreToolUse(ctx, &hooks.PreToolUseInput{
@@ -127,7 +127,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, preToolUseEnvelope(out))
 
-	case "post_tool_use":
+	case "PostToolUse":
 		toolName, _ := inputMap["tool_name"].(string)
 		toolInput, _ := inputMap["tool_input"].(map[string]any)
 		toolOutput, _ := inputMap["tool_response"].(string)
@@ -144,7 +144,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, postToolUseEnvelope(out))
 
-	case "post_tool_use_failure":
+	case "PostToolUseFailure":
 		toolName, _ := inputMap["tool_name"].(string)
 		toolInput, _ := inputMap["tool_input"].(map[string]any)
 		toolOutput, _ := inputMap["tool_response"].(string)
@@ -161,7 +161,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, postToolUseFailureEnvelope(out))
 
-	case "model_response":
+	case "ModelResponse":
 		response, _ := inputMap["response"].(string)
 		_, err := o.Hooks.DispatchModelResponse(ctx, &hooks.ModelResponseInput{
 			Response:  response,
@@ -172,7 +172,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
-	case "notification_arrived":
+	case "NotificationArrived":
 		title, _ := inputMap["title"].(string)
 		message, _ := inputMap["message"].(string)
 		_, err := o.Hooks.DispatchNotificationArrived(ctx, &hooks.NotificationArrivedInput{
@@ -185,7 +185,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
-	case "stop":
+	case "Stop":
 		reason, _ := inputMap["reason"].(string)
 		out, err := o.Hooks.DispatchStop(ctx, &hooks.StopInput{
 			Reason:    reason,
@@ -196,7 +196,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, stopEnvelope(out))
 
-	case "subagent_started":
+	case "SubagentStarted":
 		agentID, _ := inputMap["agent_id"].(string)
 		_, err := o.Hooks.DispatchSubagentStarted(ctx, &hooks.SubagentStartedInput{
 			AgentID:   agentID,
@@ -207,7 +207,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
-	case "subagent_stopped":
+	case "SubagentStopped":
 		agentID, _ := inputMap["agent_id"].(string)
 		result, _ := inputMap["result"].(string)
 		_, err := o.Hooks.DispatchSubagentStopped(ctx, &hooks.SubagentStoppedInput{
@@ -220,7 +220,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
-	case "session_started":
+	case "SessionStarted":
 		_, err := o.Hooks.DispatchSessionStarted(ctx, &hooks.SessionStartedInput{
 			SessionID: sessionID,
 		})
@@ -229,7 +229,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
-	case "session_stopped":
+	case "SessionStopped":
 		_, err := o.Hooks.DispatchSessionStopped(ctx, &hooks.SessionStoppedInput{
 			SessionID: sessionID,
 		})
@@ -238,7 +238,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, &hooks.HookJSONOutput{})
 
-	case "user_prompt_submit":
+	case "UserPromptSubmit":
 		prompt, _ := inputMap["prompt"].(string)
 		out, err := o.Hooks.DispatchUserPromptSubmit(ctx, &hooks.UserPromptSubmitInput{
 			Prompt:    prompt,
@@ -249,7 +249,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, userPromptSubmitEnvelope(out))
 
-	case "permission_request":
+	case "PermissionRequest":
 		toolName, _ := inputMap["tool_name"].(string)
 		toolInput, _ := inputMap["tool_input"].(map[string]any)
 		out, err := o.Hooks.DispatchPermissionRequest(ctx, &hooks.PermissionRequestInput{
@@ -262,7 +262,7 @@ func handleHookCallback(ctx context.Context, tr Transporter, o *Options, msg *Co
 		}
 		return sendControlSuccess(tr, msg.RequestID, permissionRequestEnvelope(out))
 
-	case "pre_compact":
+	case "PreCompact":
 		var messageCount int
 		if v, ok := inputMap["message_count"].(float64); ok {
 			messageCount = int(v)

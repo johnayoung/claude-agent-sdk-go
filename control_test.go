@@ -205,7 +205,7 @@ func TestControlRequest_NotYieldedToCaller(t *testing.T) {
 }
 
 func TestControlRequest_HookCallback_Stop(t *testing.T) {
-	controlReq := `{"type":"control_request","request_id":"req-stop","request":{"subtype":"hook_callback","callback_id":"cb-1","input":{"hook_event_name":"stop","reason":"end_turn","session_id":"sess-1"}}}`
+	controlReq := `{"type":"control_request","request_id":"req-stop","request":{"subtype":"hook_callback","callback_id":"cb-1","input":{"hook_event_name":"Stop","reason":"end_turn","session_id":"sess-1"}}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
 
 	tr := agenttest.NewMockTransportFromLines(
@@ -242,7 +242,7 @@ func TestControlRequest_HookCallback_Stop(t *testing.T) {
 }
 
 func TestControlRequest_HookCallback_UserPromptSubmit(t *testing.T) {
-	controlReq := `{"type":"control_request","request_id":"req-ups","request":{"subtype":"hook_callback","callback_id":"cb-2","input":{"hook_event_name":"user_prompt_submit","prompt":"hello world","session_id":"sess-1"}}}`
+	controlReq := `{"type":"control_request","request_id":"req-ups","request":{"subtype":"hook_callback","callback_id":"cb-2","input":{"hook_event_name":"UserPromptSubmit","prompt":"hello world","session_id":"sess-1"}}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
 
 	tr := agenttest.NewMockTransportFromLines(
@@ -272,7 +272,7 @@ func TestControlRequest_HookCallback_UserPromptSubmit(t *testing.T) {
 }
 
 func TestControlRequest_HookCallback_PreCompact(t *testing.T) {
-	controlReq := `{"type":"control_request","request_id":"req-pc","request":{"subtype":"hook_callback","callback_id":"cb-3","input":{"hook_event_name":"pre_compact","session_id":"sess-1","message_count":42}}}`
+	controlReq := `{"type":"control_request","request_id":"req-pc","request":{"subtype":"hook_callback","callback_id":"cb-3","input":{"hook_event_name":"PreCompact","session_id":"sess-1","message_count":42}}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
 
 	tr := agenttest.NewMockTransportFromLines(
@@ -302,7 +302,7 @@ func TestControlRequest_HookCallback_PreCompact(t *testing.T) {
 }
 
 func TestControlRequest_HookCallback_PreToolUse_BlockWireFormat(t *testing.T) {
-	controlReq := `{"type":"control_request","request_id":"req-ptu","request":{"subtype":"hook_callback","callback_id":"cb-ptu","input":{"hook_event_name":"pre_tool_use","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"session_id":"sess-1"}}}`
+	controlReq := `{"type":"control_request","request_id":"req-ptu","request":{"subtype":"hook_callback","callback_id":"cb-ptu","input":{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"session_id":"sess-1"}}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
 
 	tr := agenttest.NewMockTransportFromLines(
@@ -340,7 +340,7 @@ func TestControlRequest_HookCallback_PreToolUse_BlockWireFormat(t *testing.T) {
 }
 
 func TestControlRequest_HookCallback_PreToolUse_AllowWireFormat(t *testing.T) {
-	controlReq := `{"type":"control_request","request_id":"req-ptu-a","request":{"subtype":"hook_callback","callback_id":"cb-ptu-a","input":{"hook_event_name":"pre_tool_use","tool_name":"Read","tool_input":{},"session_id":"sess-1"}}}`
+	controlReq := `{"type":"control_request","request_id":"req-ptu-a","request":{"subtype":"hook_callback","callback_id":"cb-ptu-a","input":{"hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{},"session_id":"sess-1"}}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
 
 	tr := agenttest.NewMockTransportFromLines(
@@ -378,7 +378,7 @@ func TestControlRequest_HookCallback_PreToolUse_AllowWireFormat(t *testing.T) {
 }
 
 func TestControlRequest_HookCallback_PostToolUse_ContinueStopWireFormat(t *testing.T) {
-	controlReq := `{"type":"control_request","request_id":"req-post","request":{"subtype":"hook_callback","callback_id":"cb-post","input":{"hook_event_name":"post_tool_use","tool_name":"Bash","tool_input":{},"tool_response":"CRITICAL ERROR","session_id":"sess-1"}}}`
+	controlReq := `{"type":"control_request","request_id":"req-post","request":{"subtype":"hook_callback","callback_id":"cb-post","input":{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{},"tool_response":"CRITICAL ERROR","session_id":"sess-1"}}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
 
 	tr := agenttest.NewMockTransportFromLines(
@@ -430,7 +430,7 @@ func TestControlRequest_HookCallback_PostToolUse_ContinueStopWireFormat(t *testi
 }
 
 func TestControlRequest_HookCallback_PostToolUse_EmptyOutputBackwardCompat(t *testing.T) {
-	controlReq := `{"type":"control_request","request_id":"req-post-empty","request":{"subtype":"hook_callback","callback_id":"cb-post-e","input":{"hook_event_name":"post_tool_use","tool_name":"Bash","tool_input":{},"tool_response":"ok","session_id":"sess-1"}}}`
+	controlReq := `{"type":"control_request","request_id":"req-post-empty","request":{"subtype":"hook_callback","callback_id":"cb-post-e","input":{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{},"tool_response":"ok","session_id":"sess-1"}}}`
 	resultMsg := `{"type":"result","subtype":"success","result":"done","duration_ms":100,"duration_api_ms":50,"is_error":false,"session_id":"sess-1","num_turns":1}`
 
 	tr := agenttest.NewMockTransportFromLines(
