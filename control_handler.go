@@ -31,8 +31,12 @@ func handleControlRequest(ctx context.Context, tr Transporter, o *Options, msg *
 		return handleRewindFiles(tr, msg)
 	case "mcp_message":
 		return handleMcpMessage(ctx, tr, o, msg)
-	case "mcp_reconnect", "mcp_toggle", "stop_task":
-		return sendControlSuccess(tr, msg.RequestID, nil)
+	case "mcp_reconnect":
+		return handleMcpReconnect(tr, msg)
+	case "mcp_toggle":
+		return handleMcpToggle(tr, msg)
+	case "stop_task":
+		return handleStopTask(tr, msg)
 	default:
 		return sendControlSuccess(tr, msg.RequestID, nil)
 	}
@@ -297,6 +301,30 @@ func handleRewindFiles(tr Transporter, msg *ControlRequestMessage) error {
 	var req ControlRewindFilesRequest
 	if err := json.Unmarshal(msg.Request, &req); err != nil {
 		return sendControlError(tr, msg.RequestID, fmt.Sprintf("failed to parse rewind_files request: %v", err))
+	}
+	return sendControlSuccess(tr, msg.RequestID, nil)
+}
+
+func handleMcpReconnect(tr Transporter, msg *ControlRequestMessage) error {
+	var req ControlMcpReconnectRequest
+	if err := json.Unmarshal(msg.Request, &req); err != nil {
+		return sendControlError(tr, msg.RequestID, fmt.Sprintf("failed to parse mcp_reconnect request: %v", err))
+	}
+	return sendControlSuccess(tr, msg.RequestID, nil)
+}
+
+func handleMcpToggle(tr Transporter, msg *ControlRequestMessage) error {
+	var req ControlMcpToggleRequest
+	if err := json.Unmarshal(msg.Request, &req); err != nil {
+		return sendControlError(tr, msg.RequestID, fmt.Sprintf("failed to parse mcp_toggle request: %v", err))
+	}
+	return sendControlSuccess(tr, msg.RequestID, nil)
+}
+
+func handleStopTask(tr Transporter, msg *ControlRequestMessage) error {
+	var req ControlStopTaskRequest
+	if err := json.Unmarshal(msg.Request, &req); err != nil {
+		return sendControlError(tr, msg.RequestID, fmt.Sprintf("failed to parse stop_task request: %v", err))
 	}
 	return sendControlSuccess(tr, msg.RequestID, nil)
 }
