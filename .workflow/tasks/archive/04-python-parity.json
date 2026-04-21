@@ -1,0 +1,177 @@
+{
+  "phase": {
+    "id": "python-parity",
+    "name": "Python SDK Feature Parity",
+    "depends_on_phases": [
+      "testing-examples"
+    ],
+    "exit_criteria": "All 6 missing Client control methods are implemented, ServerToolUseBlock and ServerToolResultBlock content types are parsed, handler stubs are replaced, and examples are updated"
+  },
+  "tasks": [
+    {
+      "id": "CASG-0014",
+      "description": "Refactor checkpoint.go control request helpers into reusable generics: extract sendControlRequest, awaitControlResponseTyped[T], buildControlTransportArgs, and startControlTransport from the existing RewindFiles implementation so new Client control methods can reuse them without duplication",
+      "category": "refactor",
+      "commit": "refactor(control): extract reusable control request helpers from checkpoint",
+      "steps": [
+        "Step 1: Extract buildControlTransportArgs from buildRewindArgs (parameterize name) and generateControlRequestID from generateRequestID (parameterize prefix)",
+        "Step 2: Extract sendControlRequest as a generic sender replacing sendRewindFilesRequest -- accepts any payload struct",
+        "Step 3: Implement awaitControlResponseTyped[T] using Go generics that unmarshals the response JSON into type T, replacing awaitControlResponse which only checks success/error",
+        "Step 4: Extract startControlTransport helper that encapsulates client state checks (closed, busy, session), transport creation, Start, and sendInitializeRequest",
+        "Step 5: Rewrite RewindFiles to use the new generalized helpers, ensuring all existing checkpoint_test.go tests still pass"
+      ],
+      "acceptance_criteria": [
+        "All existing checkpoint_test.go tests pass without modification",
+        "RewindFiles uses the new shared helpers instead of private single-use functions",
+        "awaitControlResponseTyped correctly unmarshals typed responses and returns errors for error subtypes",
+        "startControlTransport returns ErrClientClosed, ErrClientBusy, ErrNoSession for appropriate states",
+        "go vet ./... passes clean"
+      ],
+      "passing": true,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": [],
+      "parallel_group": "B",
+      "priority": 1
+    },
+    {
+      "id": "CASG-0015",
+      "description": "Add ServerToolUseBlock (type: server_tool_use) and ServerToolResultBlock (type: server_tool_result) content block types to content.go and wire them into parseContentBlocksFromSlice in parse.go. These represent MCP server tool invocations that the Python SDK supports but our parser currently silently drops.",
+      "category": "feat",
+      "commit": "feat(content): add ServerToolUseBlock and ServerToolResultBlock types",
+      "steps": [
+        "Step 1: Define ServerToolUseBlock struct in content.go with fields: Type string, ID string, Name string, Input json.RawMessage; implement BlockType() returning 'server_tool_use'",
+        "Step 2: Define ServerToolResultBlock struct in content.go with fields: Type string, ToolUseID string, Content json.RawMessage; implement BlockType() returning 'server_tool_result'",
+        "Step 3: Add cases for 'server_tool_use' and 'server_tool_result' in parseContentBlocksFromSlice switch in parse.go (around line 294), parsing fields from the blockMap",
+        "Step 4: Add unit tests in parse_test.go verifying both new block types are parsed correctly from JSON and that unknown types continue to be silently dropped"
+      ],
+      "acceptance_criteria": [
+        "ServerToolUseBlock and ServerToolResultBlock implement ContentBlock interface",
+        "parseContentBlocksFromSlice correctly parses server_tool_use and server_tool_result blocks from assistant message content",
+        "Unknown block types are still silently skipped (no regression)",
+        "Unit tests cover round-trip JSON -> ContentBlock for both new types",
+        "go test ./... passes"
+      ],
+      "passing": true,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": [],
+      "parallel_group": "A",
+      "priority": 2
+    },
+    {
+      "id": "CASG-0016",
+      "description": "Add Client methods ReconnectMCPServer(ctx, serverName), ToggleMCPServer(ctx, serverName, enabled), and GetMCPStatus(ctx) using the generalized control request helpers from CASG-0014. These enable runtime MCP server management matching the Python SDK's reconnect_mcp_server, toggle_mcp_server, and get_mcp_status.",
+      "category": "feat",
+      "commit": "feat(client): add MCP control methods (reconnect, toggle, status)",
+      "steps": [
+        "Step 1: Implement ReconnectMCPServer(ctx context.Context, serverName string) error -- sends subtype 'mcp_reconnect' with serverName field via startControlTransport + sendControlRequest + awaitControlResponseTyped[struct{}]",
+        "Step 2: Implement ToggleMCPServer(ctx context.Context, serverName string, enabled bool) error -- sends subtype 'mcp_toggle' with serverName and enabled fields",
+        "Step 3: Implement GetMCPStatus(ctx context.Context) (*McpStatusResponse, error) -- sends subtype 'get_mcp_status' and returns parsed response via awaitControlResponseTyped[McpStatusResponse]",
+        "Step 4: Add unit tests using mock transport pattern from checkpoint_test.go: verify correct payloads sent, success/error responses handled, and precondition checks (no session, closed, busy) return appropriate errors"
+      ],
+      "acceptance_criteria": [
+        "ReconnectMCPServer sends correct control_request payload and handles success/error",
+        "ToggleMCPServer sends correct control_request with serverName and enabled fields",
+        "GetMCPStatus returns parsed McpStatusResponse on success",
+        "All three methods return ErrNoSession when no session is established",
+        "All three methods return ErrClientClosed and ErrClientBusy appropriately",
+        "go test ./... passes"
+      ],
+      "passing": true,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": [
+        "CASG-0014"
+      ],
+      "parallel_group": "B",
+      "priority": 3
+    },
+    {
+      "id": "CASG-0017",
+      "description": "Add Client methods GetContextUsage(ctx), GetServerInfo(ctx), and StopTask(ctx, taskID) using the generalized control request helpers. Define ServerInfoResponse type. These match the Python SDK's get_context_usage, get_server_info, and stop_task.",
+      "category": "feat",
+      "commit": "feat(client): add context usage, server info, and stop task methods",
+      "steps": [
+        "Step 1: Implement GetContextUsage(ctx context.Context) (*ContextUsageResponse, error) -- sends subtype 'get_context_usage' and returns parsed response via awaitControlResponseTyped[ContextUsageResponse]",
+        "Step 2: Define ServerInfoResponse struct in types.go (use map[string]any for flexibility since the CLI schema may evolve: Commands, OutputStyle, AvailableOutputStyles fields)",
+        "Step 3: Implement GetServerInfo(ctx context.Context) (*ServerInfoResponse, error) -- sends subtype 'get_server_info' and returns parsed response",
+        "Step 4: Implement StopTask(ctx context.Context, taskID string) error -- sends subtype 'stop_task' with task_id field, returns error only",
+        "Step 5: Add unit tests for all three methods following the mock transport pattern"
+      ],
+      "acceptance_criteria": [
+        "GetContextUsage returns parsed ContextUsageResponse on success",
+        "ServerInfoResponse type is defined in types.go",
+        "GetServerInfo returns parsed ServerInfoResponse on success",
+        "StopTask sends correct control_request with task_id field",
+        "All methods enforce session/closed/busy preconditions",
+        "go test ./... passes"
+      ],
+      "passing": true,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": [
+        "CASG-0014"
+      ],
+      "parallel_group": "B",
+      "priority": 3
+    },
+    {
+      "id": "CASG-0018",
+      "description": "Replace auto-ack stubs in control_handler.go for mcp_reconnect, mcp_toggle, and stop_task (currently line 34: blanket sendControlSuccess) with proper handler functions that parse request payloads and return structured responses",
+      "category": "feat",
+      "commit": "feat(control): implement proper handlers for MCP and task control requests",
+      "steps": [
+        "Step 1: Implement handleMcpReconnect that parses ControlMcpReconnectRequest and returns structured success response",
+        "Step 2: Implement handleMcpToggle that parses ControlMcpToggleRequest and returns structured success response",
+        "Step 3: Implement handleStopTask that parses ControlStopTaskRequest and returns structured success response",
+        "Step 4: Update the switch in handleControlRequest to call the new handlers instead of the blanket auto-ack",
+        "Step 5: Add unit tests verifying handlers parse payloads correctly and return expected responses, and that malformed JSON returns control error responses"
+      ],
+      "acceptance_criteria": [
+        "mcp_reconnect, mcp_toggle, and stop_task are handled by dedicated functions instead of blanket auto-ack",
+        "Each handler parses the typed request struct from ControlRequestMessage.Request",
+        "Malformed JSON payloads return control error responses instead of silent success",
+        "go test ./... passes"
+      ],
+      "passing": true,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": [
+        "CASG-0014"
+      ],
+      "parallel_group": "B",
+      "priority": 4
+    },
+    {
+      "id": "CASG-0019",
+      "description": "Update examples/streaming-mode/main.go with new examples demonstrating MCP status queries, context usage inspection, server tool content block handling, and the with_options example updated to use AllowedTools and Env matching the Python SDK's pattern",
+      "category": "docs",
+      "commit": "docs(examples): add MCP control, server tools, and updated options examples",
+      "steps": [
+        "Step 1: Add exampleMCPStatus function demonstrating GetMCPStatus and displaying server connection states",
+        "Step 2: Add exampleContextUsage function demonstrating GetContextUsage and displaying token breakdown",
+        "Step 3: Add exampleServerToolBlocks function showing how to handle ServerToolUseBlock and ServerToolResultBlock in message iteration via type assertions",
+        "Step 4: Update exampleWithOptions to use WithAllowedTools and WithEnv matching the Python SDK's with_options example pattern",
+        "Step 5: Register all new examples in the main() examples map and order slice"
+      ],
+      "acceptance_criteria": [
+        "go build ./examples/... compiles clean",
+        "New examples are registered and accessible via command-line name",
+        "Examples demonstrate type assertions for ServerToolUseBlock and ServerToolResultBlock",
+        "exampleWithOptions uses WithAllowedTools and WithEnv instead of just WithSystemPrompt",
+        "go vet ./examples/... passes"
+      ],
+      "passing": true,
+      "implementation_notes": "",
+      "github_item_id": null,
+      "prerequisites": [
+        "CASG-0015",
+        "CASG-0016",
+        "CASG-0017"
+      ],
+      "parallel_group": null,
+      "priority": 5
+    }
+  ]
+}
