@@ -224,9 +224,9 @@ This SDK targets feature parity with [`claude-agent-sdk-python`](https://github.
 | SessionStore interface | Pluggable backend for session persistence | Y | Y | TODO |
 | In-memory store | `NewInMemorySessionStore()` for development | Y | Y | TODO |
 | Transcript mirroring | Automatic persistence when SessionStore is set | Y | Y | TODO |
-| S3 store adapter | Production adapter for AWS S3 | -- | Y | -- |
-| Redis store adapter | Production adapter for Redis | -- | Y | -- |
-| PostgreSQL store adapter | Production adapter for PostgreSQL | -- | Y | -- |
+| S3 store adapter | Reference adapter for AWS S3 | Y | Y | [session_stores/s3](examples/session_stores/s3/) |
+| Redis store adapter | Reference adapter for Redis | Y | Y | [session_stores/redis](examples/session_stores/redis/) |
+| PostgreSQL store adapter | Reference adapter for PostgreSQL | Y | Y | [session_stores/postgres](examples/session_stores/postgres/) |
 | Conformance test suite | Validates store implementations against behavioral contracts | -- | Y | -- |
 
 ### Runtime control
