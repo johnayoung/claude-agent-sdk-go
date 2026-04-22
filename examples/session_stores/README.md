@@ -18,6 +18,42 @@ go vet ./...
 
 The adapters are designed to be copied into your own project. Replace the `replace` directive with a concrete version of `github.com/johnayoung/claude-agent-sdk-go` once you pull the SDK as a dependency.
 
+## Running the conformance suite
+
+Each adapter ships with a `TestConformance` test that exercises the shared
+[`sessionstoretest`](../../agenttest/sessionstoretest/) contract against a
+live backend. Skipped by default — set the relevant env vars to run.
+
+```bash
+# Redis
+docker run -d --rm -p 6379:6379 redis:7-alpine
+cd examples/session_stores/redis
+SESSION_STORE_REDIS_URL=redis://localhost:6379/0 go test -v ./...
+
+# Postgres
+docker run -d --rm -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine
+cd examples/session_stores/postgres
+SESSION_STORE_POSTGRES_URL='postgres://postgres:postgres@localhost:5432/postgres' \
+  go test -v ./...
+
+# S3 via MinIO
+docker run -d --rm -p 9000:9000 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  minio/minio server /data
+docker run --rm --network host minio/mc sh -c \
+  'mc alias set l http://localhost:9000 minioadmin minioadmin && mc mb l/sstest'
+cd examples/session_stores/s3
+SESSION_STORE_S3_BUCKET=sstest \
+SESSION_STORE_S3_ENDPOINT=http://localhost:9000 \
+SESSION_STORE_S3_ACCESS_KEY=minioadmin \
+SESSION_STORE_S3_SECRET_KEY=minioadmin \
+SESSION_STORE_S3_REGION=us-east-1 \
+  go test -v ./...
+```
+
+Each subtest uses a unique prefix / table / bucket-key and cleans up after
+itself, so runs against shared infrastructure don't collide.
+
 ## Production checklist
 
 These adapters are reference code. Before running one in production, work through the relevant items below.

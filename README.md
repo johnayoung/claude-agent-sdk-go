@@ -227,7 +227,7 @@ This SDK targets feature parity with [`claude-agent-sdk-python`](https://github.
 | S3 store adapter | Reference adapter for AWS S3 | Y | Y | [session_stores/s3](examples/session_stores/s3/) |
 | Redis store adapter | Reference adapter for Redis | Y | Y | [session_stores/redis](examples/session_stores/redis/) |
 | PostgreSQL store adapter | Reference adapter for PostgreSQL | Y | Y | [session_stores/postgres](examples/session_stores/postgres/) |
-| Conformance test suite | Validates store implementations against behavioral contracts | -- | Y | -- |
+| Conformance test suite | Validates store implementations against behavioral contracts | Y | Y | [agenttest/sessionstoretest](agenttest/sessionstoretest/) |
 
 ### Runtime control
 

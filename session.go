@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"time"
 )
 
 // SessionKey identifies a session in a SessionStore.
@@ -39,13 +40,24 @@ type SessionStore interface {
 
 // InMemorySessionStore is a SessionStore backed by an in-process map.
 type InMemorySessionStore struct {
-	mu   sync.RWMutex
+	mu sync.RWMutex
+	// data maps the composite key (project/session[/subpath]) to its entries.
 	data map[string][]SessionStoreEntry
+	// mtimes tracks the last-write time per main session (project/session).
+	// Only main-transcript appends update mtime — ListSessions filters to main.
+	mtimes map[string]int64
+	// clock is strictly monotonic within this instance so same-ms appends
+	// stay distinguishable.
+	clockMu sync.Mutex
+	lastMs  int64
 }
 
 // NewInMemorySessionStore creates an empty in-memory session store.
 func NewInMemorySessionStore() *InMemorySessionStore {
-	return &InMemorySessionStore{data: make(map[string][]SessionStoreEntry)}
+	return &InMemorySessionStore{
+		data:   make(map[string][]SessionStoreEntry),
+		mtimes: make(map[string]int64),
+	}
 }
 
 func sessionStoreKey(key SessionKey) string {
@@ -56,11 +68,33 @@ func sessionStoreKey(key SessionKey) string {
 	return k
 }
 
+func mainSessionKey(projectKey, sessionID string) string {
+	return projectKey + "/" + sessionID
+}
+
+func (s *InMemorySessionStore) monotonicNowMs() int64 {
+	s.clockMu.Lock()
+	defer s.clockMu.Unlock()
+	now := time.Now().UnixMilli()
+	if now <= s.lastMs {
+		now = s.lastMs + 1
+	}
+	s.lastMs = now
+	return now
+}
+
 func (s *InMemorySessionStore) Append(_ context.Context, key SessionKey, entries []SessionStoreEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	k := sessionStoreKey(key)
 	s.data[k] = append(s.data[k], entries...)
+	if key.Subpath == "" {
+		// Only main-transcript appends bump the session index.
+		s.mtimes[mainSessionKey(key.ProjectKey, key.SessionID)] = s.monotonicNowMs()
+	}
 	return nil
 }
 
@@ -76,34 +110,56 @@ func (s *InMemorySessionStore) Load(_ context.Context, key SessionKey) ([]Sessio
 	return out, nil
 }
 
+// Delete removes a session (or a specific subpath). Deleting the main
+// session (empty Subpath) cascades to every subpath under
+// (ProjectKey, SessionID); deleting a specific subpath is exact-key only.
 func (s *InMemorySessionStore) Delete(_ context.Context, key SessionKey) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.data, sessionStoreKey(key))
+	if key.Subpath != "" {
+		delete(s.data, sessionStoreKey(key))
+		return nil
+	}
+	// Cascade: delete the main transcript plus every key under
+	// {project}/{session}/.
+	mainKey := sessionStoreKey(key)
+	prefix := mainKey + "/"
+	delete(s.data, mainKey)
+	for k := range s.data {
+		if len(k) > len(prefix) && k[:len(prefix)] == prefix {
+			delete(s.data, k)
+		}
+	}
+	delete(s.mtimes, mainSessionKey(key.ProjectKey, key.SessionID))
 	return nil
 }
 
+// ListSessions returns main-transcript sessions only (subagent subpaths are
+// excluded). Mtime reflects the most recent main-transcript Append.
 func (s *InMemorySessionStore) ListSessions(_ context.Context, projectKey string) ([]SessionStoreListEntry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	prefix := projectKey + "/"
 	var result []SessionStoreListEntry
-	seen := make(map[string]bool)
 	for k := range s.data {
-		if len(k) > len(prefix) && k[:len(prefix)] == prefix {
-			rest := k[len(prefix):]
-			sid := rest
-			for i := 0; i < len(rest); i++ {
-				if rest[i] == '/' {
-					sid = rest[:i]
-					break
-				}
-			}
-			if !seen[sid] {
-				seen[sid] = true
-				result = append(result, SessionStoreListEntry{SessionID: sid})
+		if len(k) <= len(prefix) || k[:len(prefix)] != prefix {
+			continue
+		}
+		rest := k[len(prefix):]
+		// Main-transcript keys have no additional '/' after the session_id.
+		for i := 0; i < len(rest); i++ {
+			if rest[i] == '/' {
+				rest = ""
+				break
 			}
 		}
+		if rest == "" {
+			continue
+		}
+		result = append(result, SessionStoreListEntry{
+			SessionID: rest,
+			Mtime:     s.mtimes[mainSessionKey(projectKey, rest)],
+		})
 	}
 	return result, nil
 }
