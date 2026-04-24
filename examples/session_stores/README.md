@@ -25,6 +25,10 @@ Each adapter ships with a `TestConformance` test that exercises the shared
 live backend. Skipped by default — set the relevant env vars to run.
 
 ```bash
+# SQLite — no env var needed (embedded; uses t.TempDir())
+cd examples/session_stores/sqlite
+go test -v ./...
+
 # Redis
 docker run -d --rm -p 6379:6379 redis:7-alpine
 cd examples/session_stores/redis
@@ -82,6 +86,13 @@ These adapters are reference code. Before running one in production, work throug
 - Size the `pgxpool.Pool` ≥ expected concurrent sessions; don't share a pool with request-handler code that holds connections.
 - `jsonb` reorders keys — contract-safe, but don't byte-compare entries.
 - Add a retention job (`DELETE WHERE mtime < ...`) — the table grows unbounded.
+
+### SQLite
+
+- SQLite serializes writers. Enable WAL mode (`PRAGMA journal_mode=WAL;`) on the `*sql.DB` for concurrent reader/writer workloads.
+- If you don't enable WAL, set `db.SetMaxOpenConns(1)` to avoid `database is locked` errors under concurrent `Append` calls.
+- File-based databases need their own backup / replication strategy if durability matters beyond a single host.
+- Add a retention job (`DELETE WHERE mtime < ?`) — the table grows unbounded.
 
 ---
 
@@ -253,4 +264,73 @@ Entries are stored as `jsonb`, which reorders object keys on read-back (shorter 
 
 ```bash
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine
+```
+
+---
+
+## SQLite — [`sqlite/sqlite.go`](sqlite/sqlite.go)
+
+Embedded relational backend — no external service required. Same row-per-entry shape as the Postgres adapter, with SQLite types and an `INTEGER PRIMARY KEY AUTOINCREMENT` `seq` column (SQLite allows only one PK per table, so `seq` is the PK and the `(project_key, session_id, subpath, seq)` lookup is served by an explicit index).
+
+### Dependencies
+
+The adapter takes a `*sql.DB`, so any `database/sql` driver works. The conformance test uses [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) (pure Go, no cgo) so `go test ./...` runs anywhere; substitute [`github.com/mattn/go-sqlite3`](https://github.com/mattn/go-sqlite3) if you prefer cgo.
+
+```
+modernc.org/sqlite     // or github.com/mattn/go-sqlite3
+```
+
+### Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS claude_session_store (
+  seq         INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_key TEXT    NOT NULL,
+  session_id  TEXT    NOT NULL,
+  subpath     TEXT    NOT NULL DEFAULT '',
+  entry       TEXT    NOT NULL,
+  mtime       INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS claude_session_store_lookup_idx
+  ON claude_session_store (project_key, session_id, subpath, seq);
+CREATE INDEX IF NOT EXISTS claude_session_store_list_idx
+  ON claude_session_store (project_key, session_id) WHERE subpath = '';
+```
+
+`Append` is a single multi-row `INSERT` inside a transaction; `Load` is `SELECT entry ... ORDER BY seq`. The `CreateSchema(ctx)` method is idempotent.
+
+### Usage
+
+```go
+import (
+    "database/sql"
+
+    _ "modernc.org/sqlite"
+
+    claude "github.com/johnayoung/claude-agent-sdk-go"
+    sqlitestore "github.com/johnayoung/claude-agent-sdk-go/examples/session_stores/sqlite"
+)
+
+db, err := sql.Open("sqlite", "file:sessions.db?_pragma=journal_mode(WAL)")
+if err != nil { /* ... */ }
+defer db.Close()
+
+store, err := sqlitestore.New(db, "") // "" -> default table name
+if err != nil { /* ... */ }
+if err := store.CreateSchema(ctx); err != nil { /* ... */ }
+
+for msg, err := range claude.Query(ctx, "Hello!",
+    claude.WithSessionStore(store),
+) {
+    _ = msg; _ = err
+}
+```
+
+### Running live
+
+No setup needed — the conformance test creates an ephemeral database under `t.TempDir()`:
+
+```bash
+cd examples/session_stores/sqlite
+go test -v ./...
 ```
