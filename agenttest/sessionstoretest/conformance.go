@@ -17,6 +17,7 @@ package sessionstoretest
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"sort"
 	"testing"
@@ -52,6 +53,7 @@ func Run(t *testing.T, factory Factory) {
 		{"ListSubkeysEmptyForNoSubagents", testListSubkeysEmptyForNoSubagents},
 		{"ReappendAfterDelete", testReappendAfterDelete},
 		{"EntryFieldsPreserved", testEntryFieldsPreserved},
+		{"EntryExtraPreserved", testEntryExtraPreserved},
 	}
 
 	for _, tc := range cases {
@@ -383,6 +385,69 @@ func testEntryFieldsPreserved(t *testing.T, store claude.SessionStore) {
 	}
 	if !reflect.DeepEqual(got, entries) {
 		t.Fatalf("entry fields not preserved:\ngot  %+v\nwant %+v", got, entries)
+	}
+}
+
+// testEntryExtraPreserved asserts that adapters round-trip CLI-emitted
+// fields beyond the documented Type/UUID/Timestamp (message bodies, tool
+// calls, arbitrary future additions) without loss. The CLI's transcript
+// schema is internal and evolves — adapters that strip unknown fields
+// silently lose transcript content.
+func testEntryExtraPreserved(t *testing.T, store claude.SessionStore) {
+	ctx := context.Background()
+	key := claude.SessionKey{ProjectKey: "p", SessionID: "s"}
+
+	// A realistic-shaped entry: Type/UUID/Timestamp plus a nested "message"
+	// block and a top-level scalar field the schema doesn't document today.
+	entries := []claude.SessionStoreEntry{
+		{
+			Type:      "assistant",
+			UUID:      "u1",
+			Timestamp: "2026-04-22T12:00:00Z",
+			Extra: map[string]json.RawMessage{
+				"message":       json.RawMessage(`{"role":"assistant","content":[{"type":"text","text":"hi"}]}`),
+				"parent_uuid":   json.RawMessage(`"u0"`),
+				"unknown_field": json.RawMessage(`42`),
+			},
+		},
+	}
+	if err := store.Append(ctx, key, entries); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	got, err := store.Load(ctx, key)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 entry, got %d", len(got))
+	}
+
+	// Documented fields must round-trip.
+	if got[0].Type != "assistant" || got[0].UUID != "u1" || got[0].Timestamp != "2026-04-22T12:00:00Z" {
+		t.Fatalf("documented fields lost: %+v", got[0])
+	}
+
+	// Every Extra key must survive with value-equal JSON.
+	if len(got[0].Extra) != 3 {
+		t.Fatalf("Extra key count: got %d want 3; Extra=%+v", len(got[0].Extra), got[0].Extra)
+	}
+	for k, want := range entries[0].Extra {
+		haveRaw, ok := got[0].Extra[k]
+		if !ok {
+			t.Fatalf("Extra missing key %q after round-trip", k)
+		}
+		// Compare as JSON values, not raw bytes (whitespace/ordering may
+		// differ after a backend decodes and re-encodes).
+		var wantV, haveV any
+		if err := json.Unmarshal(want, &wantV); err != nil {
+			t.Fatalf("unmarshal want %q: %v", k, err)
+		}
+		if err := json.Unmarshal(haveRaw, &haveV); err != nil {
+			t.Fatalf("unmarshal have %q: %v", k, err)
+		}
+		if !reflect.DeepEqual(wantV, haveV) {
+			t.Fatalf("Extra[%q] mismatch:\n got  %s\nwant %s", k, haveRaw, want)
+		}
 	}
 }
 

@@ -16,11 +16,104 @@ type SessionKey struct {
 	Subpath    string `json:"subpath,omitempty"`
 }
 
-// SessionStoreEntry represents a single entry persisted in a session store.
+// SessionStoreEntry represents a single JSONL transcript line observed by a
+// SessionStore adapter.
+//
+// The concrete shape is the CLI's on-disk transcript format — a large
+// discriminated union whose exhaustive schema is internal to the CLI. This
+// type is a minimal structural supertype: Type/UUID/Timestamp are surfaced
+// for convenience, and every other field the CLI emits is preserved verbatim
+// in Extra. Adapters must round-trip entries without loss — the
+// json.Marshal → storage → json.Unmarshal cycle is the only required
+// invariant.
+//
+// This mirrors the Python SDK's SessionStoreEntry TypedDict with pass-through
+// extras.
 type SessionStoreEntry struct {
-	Type      string `json:"type"`
-	UUID      string `json:"uuid,omitempty"`
-	Timestamp string `json:"timestamp,omitempty"`
+	Type      string
+	UUID      string
+	Timestamp string
+
+	// Extra holds every top-level key in the wire payload other than type,
+	// uuid, and timestamp, preserved as raw JSON so adapters can round-trip
+	// CLI-emitted content (message bodies, tool calls, etc.) without knowing
+	// the evolving CLI schema. Nil for entries constructed in code with only
+	// the documented fields.
+	Extra map[string]json.RawMessage
+}
+
+// MarshalJSON emits a flat JSON object that merges Type/UUID/Timestamp with
+// Extra. Type is always emitted; UUID and Timestamp use omitempty semantics.
+// Keys in Extra never shadow the documented fields.
+func (e SessionStoreEntry) MarshalJSON() ([]byte, error) {
+	m := make(map[string]json.RawMessage, len(e.Extra)+3)
+	for k, v := range e.Extra {
+		if k == "type" || k == "uuid" || k == "timestamp" {
+			// Documented fields always take precedence over Extra duplicates.
+			continue
+		}
+		m[k] = v
+	}
+	typeRaw, err := json.Marshal(e.Type)
+	if err != nil {
+		return nil, err
+	}
+	m["type"] = typeRaw
+	if e.UUID != "" {
+		uuidRaw, err := json.Marshal(e.UUID)
+		if err != nil {
+			return nil, err
+		}
+		m["uuid"] = uuidRaw
+	}
+	if e.Timestamp != "" {
+		tsRaw, err := json.Marshal(e.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+		m["timestamp"] = tsRaw
+	}
+	return json.Marshal(m)
+}
+
+// UnmarshalJSON extracts the documented fields into Type/UUID/Timestamp and
+// preserves everything else in Extra. Returns an error only if the payload
+// is not a JSON object.
+func (e *SessionStoreEntry) UnmarshalJSON(data []byte) error {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	if raw, ok := m["type"]; ok {
+		if err := json.Unmarshal(raw, &e.Type); err != nil {
+			return fmt.Errorf("SessionStoreEntry.type: %w", err)
+		}
+		delete(m, "type")
+	} else {
+		e.Type = ""
+	}
+	if raw, ok := m["uuid"]; ok {
+		if err := json.Unmarshal(raw, &e.UUID); err != nil {
+			return fmt.Errorf("SessionStoreEntry.uuid: %w", err)
+		}
+		delete(m, "uuid")
+	} else {
+		e.UUID = ""
+	}
+	if raw, ok := m["timestamp"]; ok {
+		if err := json.Unmarshal(raw, &e.Timestamp); err != nil {
+			return fmt.Errorf("SessionStoreEntry.timestamp: %w", err)
+		}
+		delete(m, "timestamp")
+	} else {
+		e.Timestamp = ""
+	}
+	if len(m) == 0 {
+		e.Extra = nil
+	} else {
+		e.Extra = m
+	}
+	return nil
 }
 
 // SessionStoreListEntry is a summary of a stored session.
